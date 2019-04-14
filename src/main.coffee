@@ -43,7 +43,7 @@ Ajv                       = require 'ajv'
     nullable:           true ###  support keyword "nullable" from Open API 3 specification ###
     ### options to modify validated data: ###
     # removeAdditional:   false
-    # useDefaults:        false
+    useDefaults:        'empty'
     # coerceTypes:        false
   #.........................................................................................................
   settings          = Object.assign {}, settings, defaults

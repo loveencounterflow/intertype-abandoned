@@ -27,8 +27,8 @@ get_schema_collection_A = ->
       # $id:      'http://codemirror.net/types/position'
       type:     'object'
       properties:
-        line:   { type: 'number', not: { 'type': 'null', }, }
-        ch:     { type: 'number', not: { 'type': 'null', }, }
+        line:   { type: 'number', not: { type: 'null', }, }
+        ch:     { type: 'number', not: { type: 'null', }, }
       required: [ 'line', 'ch', ]
     #.........................................................................................................
     range:
@@ -61,6 +61,54 @@ get_schema_collection_B = ->
         to:         { $ref: 'position', }
       required: [ 'from', 'to', ]
       #.......................................................................................................
+  return R
+
+#-----------------------------------------------------------------------------------------------------------
+get_schema_collection_C = ->
+  R =
+    #.........................................................................................................
+    position:
+      # $id:      'http://codemirror.net/types/position'
+      type:     'object'
+      properties:
+        line:   { type: 'number', }
+        ch:     { type: 'number', }
+      required: [ 'line', 'ch', ]
+    #.........................................................................................................
+    range:
+      # $id:      'http://codemirror.net/types/range'
+      type:     'object'
+      properties:
+        from:       { $ref: 'position', }
+        to:         { $ref: 'position', }
+      required: [ 'from', 'to', ]
+      #.......................................................................................................
+  return R
+
+#-----------------------------------------------------------------------------------------------------------
+get_schema_collection_D = ->
+  R =
+    #.........................................................................................................
+    position:
+      # $id:      'http://codemirror.net/types/position'
+      type:     'object'
+      properties:
+        line:   { type: [ 'number', 'null', ], default: 0, }
+        ch:     { type: [ 'number', 'null', ], default: 0, }
+      required: [ 'line', 'ch', ]
+  return R
+
+#-----------------------------------------------------------------------------------------------------------
+get_schema_collection_E = ->
+  R =
+    #.........................................................................................................
+    position:
+      # $id:      'http://codemirror.net/types/position'
+      type:     'object'
+      properties:
+        line:   { type: 'number', default: 0, }
+        ch:     { type: 'number', default: 0, }
+      required: [ 'line', 'ch', ]
   return R
 
 
@@ -134,7 +182,7 @@ get_schema_collection_B = ->
   return null
 
 #-----------------------------------------------------------------------------------------------------------
-@[ "nullables" ] = ( T, done ) ->
+@[ "non-nullables" ] = ( T, done ) ->
   #.........................................................................................................
   probes_and_matchers = [
     [['position', { line: 42, ch: 21, },                                            ], true, null, ]
@@ -149,18 +197,69 @@ get_schema_collection_B = ->
     [['range',    { from: { line: 42, ch: 21, },    to: { line: 10, ch: null, }, }, ], null, "property .to.ch: should be number", ]
     ]
   #.........................................................................................................
-  hub = ITYPE.new_validation_hub()
-  ITYPE.add_schema_collection hub, get_schema_collection_B()
+  for schema_getter in [ get_schema_collection_A, get_schema_collection_B, get_schema_collection_C, ]
+    hub = ITYPE.new_validation_hub()
+    ITYPE.add_schema_collection hub, schema_getter()
+    #.......................................................................................................
+    for [ probe, matcher, error, ] in probes_and_matchers
+      # matcher = CND.deep_copy probe
+      [ typename, data, ] = probe
+      matcher = data if matcher is true
+      await T.perform probe, matcher, error, -> return new Promise ( resolve, reject ) ->
+        result = ITYPE.validate hub, typename, data
+        throw new Error "expected same object, got another one" unless result is data
+        resolve result
+        return null
+  done()
+  return null
+
+#-----------------------------------------------------------------------------------------------------------
+@[ "nullables" ] = ( T, done ) ->
   #.........................................................................................................
-  for [ probe, matcher, error, ] in probes_and_matchers
-    # matcher = CND.deep_copy probe
-    [ typename, data, ] = probe
-    matcher = data if matcher is true
-    await T.perform probe, matcher, error, -> return new Promise ( resolve, reject ) ->
-      result = ITYPE.validate hub, typename, data
-      throw new Error "expected same object, got another one" unless result is data
-      resolve result
-      return null
+  probes_and_matchers = [
+    [['position', { line: 42, ch: 21, },                                            ], true, null, ]
+    [['position', { line: 42, ch: null, },                                          ], true, null, ]
+    ]
+  #.........................................................................................................
+  for schema_getter in [ get_schema_collection_D, ]
+    hub = ITYPE.new_validation_hub()
+    ITYPE.add_schema_collection hub, schema_getter()
+    #.......................................................................................................
+    for [ probe, matcher, error, ] in probes_and_matchers
+      # matcher = CND.deep_copy probe
+      [ typename, data, ] = probe
+      matcher = data if matcher is true
+      await T.perform probe, matcher, error, -> return new Promise ( resolve, reject ) ->
+        result = ITYPE.validate hub, typename, data
+        throw new Error "expected same object, got another one" unless result is data
+        resolve result
+        return null
+  done()
+  return null
+
+#-----------------------------------------------------------------------------------------------------------
+@[ "defaults" ] = ( T, done ) ->
+  #.........................................................................................................
+  probes_and_matchers = [
+    [['position', { line: 42, ch: 21, },   ], { line: 42, ch: 21, }, null, ]
+    [['position', { line: 42, ch: null, }, ], { line: 42, ch: 0, }, null, ]
+    [['position', { line: 42, }, ], { line: 42, ch: 0, }, null, ]
+    ]
+  #.........................................................................................................
+  # for schema_getter in [ get_schema_collection_D, ]
+  for schema_getter in [ get_schema_collection_E, ]
+    hub = ITYPE.new_validation_hub()
+    ITYPE.add_schema_collection hub, schema_getter()
+    #.......................................................................................................
+    for [ probe, matcher, error, ] in probes_and_matchers
+      # matcher = CND.deep_copy probe
+      [ typename, data, ] = probe
+      matcher = data if matcher is true
+      await T.perform probe, matcher, error, -> return new Promise ( resolve, reject ) ->
+        result = ITYPE.validate hub, typename, data
+        throw new Error "expected same object, got another one" unless result is data
+        resolve result
+        return null
   done()
   return null
 
