@@ -1,0 +1,13 @@
+{
+  "version": 3,
+  "file": "main.js",
+  "sourceRoot": "..",
+  "sources": [
+    "src/main.coffee"
+  ],
+  "names": [],
+  "mappings": ";AACA;EAAA;AAAA,MAAA,GAAA,EAAA,CAAA,EAAA,MAAA,EAAA,KAAA,EAAA,KAAA,EAAA,IAAA,EAAA,IAAA,EAAA,IAAA,EAAA,EAAA,EAAA,GAAA,EAAA,IAAA,EAAA,IAAA,EAAA,OAAA;;;EAGA,GAAA,GAA4B,OAAA,CAAQ,KAAR;;EAC5B,GAAA,GAA4B,GAAG,CAAC;;EAChC,KAAA,GAA4B;;EAC5B,KAAA,GAA4B,GAAG,CAAC,UAAJ,CAAe,OAAf,EAA4B,KAA5B;;EAC5B,IAAA,GAA4B,GAAG,CAAC,UAAJ,CAAe,MAAf,EAA4B,KAA5B;;EAC5B,IAAA,GAA4B,GAAG,CAAC,UAAJ,CAAe,MAAf,EAA4B,KAA5B;;EAC5B,IAAA,GAA4B,GAAG,CAAC,UAAJ,CAAe,MAAf,EAA4B,KAA5B;;EAC5B,IAAA,GAA4B,GAAG,CAAC,UAAJ,CAAe,MAAf,EAA4B,KAA5B;;EAC5B,OAAA,GAA4B,GAAG,CAAC,UAAJ,CAAe,SAAf,EAA4B,KAA5B;;EAC5B,IAAA,GAA4B,GAAG,CAAC,IAAI,CAAC,IAAT,CAAc,GAAd,EAZ5B;;;EAcA,CAAA,CAAE,MAAF,EACE,EADF,CAAA,GAC4B,GAD5B;;EAEA,CAAA,GAA4B;AAhB5B",
+  "sourcesContent": [
+    "\n'use strict'\n\n############################################################################################################\nCND                       = require 'cnd'\nrpr                       = CND.rpr\nbadge                     = 'INTERTYPE/MAIN'\ndebug                     = CND.get_logger 'debug',     badge\nwarn                      = CND.get_logger 'warn',      badge\ninfo                      = CND.get_logger 'info',      badge\nurge                      = CND.get_logger 'urge',      badge\nhelp                      = CND.get_logger 'help',      badge\nwhisper                   = CND.get_logger 'whisper',   badge\necho                      = CND.echo.bind CND\n#...........................................................................................................\n{ assign\n  jr }                    = CND\nL                         = @\n\n\n"
+  ]
+}
