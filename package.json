@@ -1,0 +1,22 @@
+{
+  "name": "intertype",
+  "version": "0.0.1",
+  "description": "A typechecker built on Ajv",
+  "main": "lib/main.js",
+  "scripts": {
+    "test": "node lib/tests/main.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loveencounterflow/intertype.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/loveencounterflow/intertype/issues"
+  },
+  "homepage": "https://github.com/loveencounterflow/intertype#readme",
+  "dependencies": {
+    "cnd": "^4.5.0"
+  }
+}
