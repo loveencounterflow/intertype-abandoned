@@ -20,7 +20,7 @@ ITYPE                     = require '../..'
 test                      = require 'guy-test'
 
 #-----------------------------------------------------------------------------------------------------------
-get_schema_A = ->
+get_schema_collection_A = ->
   R =
     #.........................................................................................................
     position:
@@ -29,6 +29,28 @@ get_schema_A = ->
       properties:
         line:   { type: 'number', not: { 'type': 'null', }, }
         ch:     { type: 'number', not: { 'type': 'null', }, }
+      required: [ 'line', 'ch', ]
+    #.........................................................................................................
+    range:
+      # $id:      'http://codemirror.net/types/range'
+      type:     'object'
+      properties:
+        from:       { $ref: 'position', }
+        to:         { $ref: 'position', }
+      required: [ 'from', 'to', ]
+      #.......................................................................................................
+  return R
+
+#-----------------------------------------------------------------------------------------------------------
+get_schema_collection_B = ->
+  R =
+    #.........................................................................................................
+    position:
+      # $id:      'http://codemirror.net/types/position'
+      type:     'object'
+      properties:
+        line:   { type: 'number', nullable: false, }
+        ch:     { type: 'number', nullable: false, }
       required: [ 'line', 'ch', ]
     #.........................................................................................................
     range:
@@ -81,24 +103,54 @@ get_schema_A = ->
 
 
 #-----------------------------------------------------------------------------------------------------------
-@[ "basic" ] = ( T, done ) ->
-  hub = ITYPE.new_validation_hub()
-  for typename, schema of get_schema_A()
-    schema.$id = typename
-    ITYPE.add_schema hub, schema
+@[ "references 1" ] = ( T, done ) ->
   #.........................................................................................................
   probes_and_matchers = [
     [['position', { line: 42, ch: 21, },                                            ], true, null, ]
     [['range',    { from: { line: 42, ch: 21, },    to: { line: 10, ch: 11, }, },   ], true, null, ]
     #.......................................................................................................
-    [['position', { line: 42, },                                                    ], null, 'µ66533', ]
-    [['position', { line: 42, ch: null, },                                          ], null, 'µ66533', ]
-    [['position', { line: 42, ch: 'x', },                                           ], null, 'µ66533', ]
-    [['range',    { from: { line: 42, },            to: { line: 10, ch: 11, }, },   ], null, 'µ66533', ]
-    [['range',    { from: { line: 42, ch: 21, },    to: { line: 10, ch: null, }, }, ], null, 'µ66533', ]
-    [['range',    { from: { line: 42, ch: null, },  to: { line: 10, ch: 11, }, },   ], null, 'µ66533', ]
-    [['range',    { from: { line: 42, ch: 'x', },   to: { line: 10, ch: 11, }, },   ], null, 'µ66533', ]
+    [['position', { line: 42, },                                                    ], null, "property : should have required property 'ch'", ]
+    [['position', { line: 42, ch: null, },                                          ], null, "property .ch: should NOT be valid", ]
+    [['position', { line: 42, ch: 'x', },                                           ], null, "property .ch: should be number", ]
+    [['range',    { from: { line: 42, },            to: { line: 10, ch: 11, }, },   ], null, "property .from: should have required property 'ch'", ]
+    [['range',    { from: { line: 42, ch: 21, },    to: { line: 10, ch: null, }, }, ], null, "property .to.ch: should NOT be valid", ]
+    [['range',    { from: { line: 42, ch: null, },  to: { line: 10, ch: 11, }, },   ], null, "property .from.ch: should NOT be valid", ]
+    [['range',    { from: { line: 42, ch: 'x', },   to: { line: 10, ch: 11, }, },   ], null, "property .from.ch: should be number", ]
     ]
+  #.........................................................................................................
+  hub = ITYPE.new_validation_hub()
+  ITYPE.add_schema_collection hub, get_schema_collection_A()
+  #.........................................................................................................
+  for [ probe, matcher, error, ] in probes_and_matchers
+    # matcher = CND.deep_copy probe
+    [ typename, data, ] = probe
+    matcher = data if matcher is true
+    await T.perform probe, matcher, error, -> return new Promise ( resolve, reject ) ->
+      result = ITYPE.validate hub, typename, data
+      throw new Error "expected same object, got another one" unless result is data
+      resolve result
+      return null
+  done()
+  return null
+
+#-----------------------------------------------------------------------------------------------------------
+@[ "nullables" ] = ( T, done ) ->
+  #.........................................................................................................
+  probes_and_matchers = [
+    [['position', { line: 42, ch: 21, },                                            ], true, null, ]
+    [['range',    { from: { line: 42, ch: 21, },    to: { line: 10, ch: 11, }, },   ], true, null, ]
+    #.......................................................................................................
+    [['position', { line: 42, },                                                    ], null, "property : should have required property 'ch'", ]
+    [['position', { line: 42, ch: 'x', },                                           ], null, "property .ch: should be number", ]
+    [['range',    { from: { line: 42, },            to: { line: 10, ch: 11, }, },   ], null, "property .from: should have required property 'ch'", ]
+    [['range',    { from: { line: 42, ch: 'x', },   to: { line: 10, ch: 11, }, },   ], null, "property .from.ch: should be number", ]
+    [['range',    { from: { line: 42, ch: null, },  to: { line: 10, ch: 11, }, },   ], null, "property .from.ch: should be number", ]
+    [['position', { line: 42, ch: null, },                                          ], null, "property .ch: should be number", ]
+    [['range',    { from: { line: 42, ch: 21, },    to: { line: 10, ch: null, }, }, ], null, "property .to.ch: should be number", ]
+    ]
+  #.........................................................................................................
+  hub = ITYPE.new_validation_hub()
+  ITYPE.add_schema_collection hub, get_schema_collection_B()
   #.........................................................................................................
   for [ probe, matcher, error, ] in probes_and_matchers
     # matcher = CND.deep_copy probe
@@ -116,5 +168,8 @@ get_schema_A = ->
 ############################################################################################################
 unless module.parent?
   test @
-  # test @[ "basic" ]
+  # test @[ "references 1" ]
+
+
+
 

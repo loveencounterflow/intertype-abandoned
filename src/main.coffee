@@ -36,14 +36,23 @@ Ajv                       = require 'ajv'
 
 #-----------------------------------------------------------------------------------------------------------
 @new_validation_hub = ( settings = null ) ->
-  defaults          = { coerceTypes: true, allErrors: true, verbose: true, }
+  defaults          =
+    coerceTypes:        false ### must be false for nullable to work as expected, but check for defaults ###
+    allErrors:          true
+    verbose:            true
+    nullable:           true ###  support keyword "nullable" from Open API 3 specification ###
+    ### options to modify validated data: ###
+    # removeAdditional:   false
+    # useDefaults:        false
+    # coerceTypes:        false
+  #.........................................................................................................
   settings          = Object.assign {}, settings, defaults
   R                 = {}
   R[ @self ]        = new Ajv settings
   return R
 
 #-----------------------------------------------------------------------------------------------------------
-@add_schema = ( me, schema ) ->
+@add_schema_collection = ( me, schema_collection ) ->
   # delete schema.postprocess if ( postprocess = schema.postprocess )?
   # delete schema.copy        if ( copy        = schema.copy        )?
   # postprocess      ?= ( data ) -> data
@@ -57,7 +66,9 @@ Ajv                       = require 'ajv'
   # unless ( key = schema.$key )?
   #   throw new Error "µ62562 schema must have a `$key`, found none"
   # delet
-  me[ @self ].addSchema schema
+  for typename, schema of schema_collection
+    schema.$id ?= typename
+    me[ @self ].addSchema schema, typename
   return null
 
 # #-----------------------------------------------------------------------------------------------------------
@@ -71,6 +82,6 @@ Ajv                       = require 'ajv'
 
 #-----------------------------------------------------------------------------------------------------------
 @validate = ( me, key, x ) ->
-  throw new Error "µ66533" unless me[ @self ].validate key, x
+  throw new Error ( @_message_from_errors x, me[ @self ].errors ) unless me[ @self ].validate key, x
   return x
 
