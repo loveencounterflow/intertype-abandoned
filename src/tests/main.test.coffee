@@ -187,6 +187,17 @@ isa                       = require '../..'
     ["isa.type_of( async function() { return await f(); } )","asyncfunction",null]
     ["isa.supertype_of( function() {} )","callable",null]
     ["isa.supertype_of( async function() { return await f(); } )","callable",null]
+    ["isa.values_of( isa.keys_of( { line: 42, ch: 33, } ))",["line","ch"],null]
+    ["isa.values_of( isa.keys_of( { line: 42, } ))",["line"],null]
+    ["isa.values_of( isa.keys_of( { line: 42, ch: undefined, } ))",["line"],null]
+    ["isa.has_keys( { line: 42, ch: 33, }, [ 'line', ] )",true,null]
+    ["isa.has_keys( { line: 42, ch: undefined, }, [ 'line', 'ch', ] )",false,null]
+    ["isa.has_keys( { line: 42, ch: 33, }, [ 'line', 'ch', ] )",true,null]
+    ["isa.has_keys( { line: 42, ch: 33, }, [ 'line', 'ch', 'other', ] )",false,null]
+    ["isa.has_only_keys( { line: 42, ch: 33, }, [ 'line', ] )",false,null]
+    ["isa.has_only_keys( { line: 42, ch: undefined, }, [ 'line', 'ch', ] )",false,null]
+    ["isa.has_only_keys( { line: 42, ch: 33, }, [ 'line', 'ch', ] )",true,null]
+    ["isa.has_only_keys( { line: 42, ch: 33, }, [ 'line', 'ch', 'other', ] )",false,null]
     ]
   #.........................................................................................................
   for [ probe, matcher, error, ] in probes_and_matchers

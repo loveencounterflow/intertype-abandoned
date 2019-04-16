@@ -14,6 +14,8 @@ urge                      = CND.get_logger 'urge',      badge
 info                      = CND.get_logger 'info',      badge
 { assign
   jr }                    = CND
+flatten                   = require 'lodash/flattenDeep'
+isa_type                  = Symbol 'isa_type'
 
 #-----------------------------------------------------------------------------------------------------------
 ity_by_cnd =
@@ -47,27 +49,6 @@ ity_by_cnd =
 #                 jswindow:             'jswindow'
 cnd_by_ity  = {}
 
-#-----------------------------------------------------------------------------------------------------------
-@integer          = Number.isInteger
-@finite_number    = Number.isFinite
-@safe_integer     = Number.isSafeInteger
-@count            = ( x ) -> ( @safe_integer x ) and ( x >= 0 )
-@asyncfunction    = ( x ) -> ( @type_of x ) is 'asyncfunction'
-@boundfunction    = ( x ) -> ( ( @supertype_of x ) is 'callable' ) and ( not Object.hasOwnProperty x, 'prototype' )
-@callable         = ( x ) -> ( @type_of x ) in [ 'function', 'asyncfunction', 'generatorfunction', ]
-@positive         = ( x ) -> ( @number x ) and ( x >  0 )
-@nonnegative      = ( x ) -> ( @number x ) and ( x >= 0 )
-@negative         = ( x ) -> ( @number x ) and ( x <  0 )
-@even             = ( x ) -> ( @finite_number x ) and     @multiple_of x, 2
-@odd              = ( x ) -> ( @finite_number x ) and not @multiple_of x, 2
-@multiple_of      = ( x, d ) -> ( @finite_number x ) and ( x %% d ) is 0
-
-#-----------------------------------------------------------------------------------------------------------
-@arity = ( x ) ->
-  unless ( type = @supertype_of x ) is 'callable'
-    throw new Error "µ88733 expected a callable, got a #{type}"
-  return x.length
-
 
 #===========================================================================================================
 #
@@ -80,16 +61,34 @@ cnd_by_ity  = {}
 @validate = ( x, type, message = null ) ->
   throw new Error "µ63077 unknown type #{rpr type}" unless ( tester = @[ type ] )?
   unless tester x
-    throw new Error message ? "µ63154 expected a #{type}, got a #{CND.type_of x}"
+    if message?
+      message = message.replace /\$type/g,  type
+      message = message.replace /\$value/g, rpr x
+      throw new Error message
+    else
+      throw new Error "µ63154 expected a #{type}, got a #{CND.type_of x}"
   return null
+
+#-----------------------------------------------------------------------------------------------------------
+@add_type = ( type, f, overwrite = false ) ->
+  if ( not overwrite ) and ( @[ type ] isnt undefined )
+    throw new Error "name #{rpr type} already defined"
+  f                     = f.bind @
+  @[ type ]             = f
+  @[ type ][ isa_type ] = true
+  @validate[ type ]     = ( x, P... ) => @validate x, type, P...
+  return null
+
+#-----------------------------------------------------------------------------------------------------------
+@arity_of = ( x ) ->
+  unless ( type = @supertype_of x ) is 'callable'
+    throw new Error "µ88733 expected a callable, got a #{type}"
+  return x.length
+
 
 
 #===========================================================================================================
 #
-#-----------------------------------------------------------------------------------------------------------
-# synonyms =
-#   string: 'text'
-
 #-----------------------------------------------------------------------------------------------------------
 @extensions =
   function:           'callable'
@@ -149,24 +148,54 @@ cnd_by_ity  = {}
   yield k for k in Object.getOwnPropertyNames x
 
 #-----------------------------------------------------------------------------------------------------------
-@all_keys_of = ( x, include_object = false ) -> @_all_keys_of x, new Set(), include_object
+@all_keys_of = ( x, skip_object = false ) ->
+  defaults = { skip_object: true, skip_undefined: true, }
+  settings = if settings? then ( assign {}, settings, defaults ) else defaults
+  return @_all_keys_of x, new Set(), settings
 
 #-----------------------------------------------------------------------------------------------------------
-@_all_keys_of = ( x, seen, include_object = false ) ->
-  if ( not include_object ) and x is Object::
+@_all_keys_of = ( x, seen, settings ) ->
+  if ( not settings.skip_object ) and x is Object::
     yield return
   # debug 'µ23773', ( rpr x ), ( x:: )
   for k from @all_own_keys_of x
     continue if seen.has k
     seen.add k
+    ### TAINT should use property descriptors to avoid possible side effects ###
+    continue if ( x[ k ] is undefined ) and settings.skip_undefined
     yield k
   if ( proto = Object.getPrototypeOf x )?
-    yield from @_all_keys_of proto, seen, include_object
+    yield from @_all_keys_of proto, seen, settings
 
 #-----------------------------------------------------------------------------------------------------------
-@keys_of    = ( x ) -> yield k for k of x
-@values_of  = ( x ) -> [ x... ]
+@keys_of = ( x, settings ) ->
+  defaults = { skip_undefined: true, }
+  settings = if settings? then ( assign {}, settings, defaults ) else defaults
+  for k of x
+    ### TAINT should use property descriptors to avoid possible side effects ###
+    continue if ( x[ k ] is undefined ) and settings.skip_undefined
+    yield k
 
+#-----------------------------------------------------------------------------------------------------------
+@values_of = ( x ) -> [ x... ]
+
+#-----------------------------------------------------------------------------------------------------------
+@has_keys = ( x, P... ) ->
+  ### Observe that `has_keys()` always considers `undefined` as 'not set' ###
+  return false unless x? ### TAINT or throw error ###
+  for key in flatten P
+    ### TAINT should use property descriptors to avoid possible side effects ###
+    return false if x[ key ] is undefined
+  return true
+
+#-----------------------------------------------------------------------------------------------------------
+@has_only_keys = ( x, P... ) ->
+  probes  = ( flatten P ).sort()
+  keys    = ( @values_of @keys_of x ).sort()
+  return CND.equals probes, keys
+
+#===========================================================================================================
+#
 #-----------------------------------------------------------------------------------------------------------
 isa = ( x, type ) ->
   return @type_of x if ( arity = arguments.length ) is 1
@@ -174,10 +203,7 @@ isa = ( x, type ) ->
   throw new Error "µ63539 expected a text, got a #{type}"     unless ( type = @type_of type ) is 'text'
   throw new Error "µ63616 unknown type #{rpr type}"           unless ( tester = @[ type ] )?
   return tester x
-#-----------------------------------------------------------------------------------------------------------
-# debug 'µ38873', @
-# debug 'µ38873', @isa
-# return @
+
 
 ############################################################################################################
 
@@ -188,18 +214,10 @@ module.exports  = isa
 do ->
   #---------------------------------------------------------------------------------------------------------
   for cnd_type, ity_type of ity_by_cnd
-    #.......................................................................................................
     ### Generate entries to cnd_by_ity: ###
     if cnd_by_ity[ ity_type ]?
       throw new Error "µ49833 name collision in cnd_by_ity: #{rpr ity_type}"
     cnd_by_ity[ ity_type ] = cnd_type
-    #.......................................................................................................
-    ### Generate mappings from `isa.$type()` to CND.isa_$type()`: ###
-    cnd_key = "isa_#{cnd_type}"
-    # debug 'µ8498', cnd_type, ity_type, cnd_key, CND.type_of CND[ cnd_key ]
-    unless ( type = CND.type_of ( cnd_method = CND[ cnd_key ] ) ) is 'function'
-      throw new Error "µ63693 expected a function for `CND.#{cnd_key}`, found a #{type}"
-    self[ ity_type ] ?= cnd_method.bind CND ### avoid to overwrite existing methods ###
 
   #---------------------------------------------------------------------------------------------------------
   ### Bind all functions to `module.exports`: ###
@@ -211,7 +229,32 @@ do ->
       isa[ key ] = value
 
   #---------------------------------------------------------------------------------------------------------
+  for cnd_type, ity_type of ity_by_cnd
+    ### Generate mappings from `isa.$type()` to CND.isa_$type()`: ###
+    continue if self[ ity_type ]?
+    cnd_key = "isa_#{cnd_type}"
+    # debug 'µ8498', cnd_type, ity_type, cnd_key, CND.type_of CND[ cnd_key ]
+    unless ( type = CND.type_of ( cnd_method = CND[ cnd_key ] ) ) is 'function'
+      throw new Error "µ63693 expected a function for `CND.#{cnd_key}`, found a #{type}"
+    isa.add_type ity_type, cnd_method.bind CND
+
+  #---------------------------------------------------------------------------------------------------------
   return null
+
+#-----------------------------------------------------------------------------------------------------------
+isa.add_type 'integer',          Number.isInteger
+isa.add_type 'finite_number',    Number.isFinite
+isa.add_type 'safe_integer',     Number.isSafeInteger
+isa.add_type 'count',            ( x ) -> ( @safe_integer x ) and ( x >= 0 )
+isa.add_type 'asyncfunction',    ( x ) -> ( @type_of x ) is 'asyncfunction'
+isa.add_type 'boundfunction',    ( x ) -> ( ( @supertype_of x ) is 'callable' ) and ( not Object.hasOwnProperty x, 'prototype' )
+isa.add_type 'callable',         ( x ) -> ( @type_of x ) in [ 'function', 'asyncfunction', 'generatorfunction', ]
+isa.add_type 'positive',         ( x ) -> ( @number x ) and ( x >  0 )
+isa.add_type 'nonnegative',      ( x ) -> ( @number x ) and ( x >= 0 )
+isa.add_type 'negative',         ( x ) -> ( @number x ) and ( x <  0 )
+isa.add_type 'even',             ( x ) -> ( @finite_number x ) and     @multiple_of x, 2
+isa.add_type 'odd',              ( x ) -> ( @finite_number x ) and not @multiple_of x, 2
+isa.add_type 'multiple_of',      ( x, d ) -> ( @finite_number x ) and ( x %% d ) is 0
 
 
 
