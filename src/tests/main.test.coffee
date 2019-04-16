@@ -1,274 +1,158 @@
 
-
-
 'use strict'
 
 
 ############################################################################################################
+# njs_util                  = require 'util'
+njs_path                  = require 'path'
+# njs_fs                    = require 'fs'
+#...........................................................................................................
 CND                       = require 'cnd'
-rpr                       = CND.rpr
-badge                     = 'INTERTYPE/TESTS/MAIN'
-debug                     = CND.get_logger 'debug',     badge
-alert                     = CND.get_logger 'alert',     badge
+rpr                       = CND.rpr.bind CND
+badge                     = 'INTERTYPE/tests/main'
+log                       = CND.get_logger 'plain',     badge
+info                      = CND.get_logger 'info',      badge
 whisper                   = CND.get_logger 'whisper',   badge
+alert                     = CND.get_logger 'alert',     badge
+debug                     = CND.get_logger 'debug',     badge
 warn                      = CND.get_logger 'warn',      badge
 help                      = CND.get_logger 'help',      badge
 urge                      = CND.get_logger 'urge',      badge
-info                      = CND.get_logger 'info',      badge
-jr                        = JSON.stringify
-ITYPE                     = require '../..'
+praise                    = CND.get_logger 'praise',    badge
+echo                      = CND.echo.bind CND
+#...........................................................................................................
 test                      = require 'guy-test'
-
-#-----------------------------------------------------------------------------------------------------------
-get_schema_collection_A = ->
-  R =
-    #.........................................................................................................
-    position:
-      # $id:      'http://codemirror.net/types/position'
-      type:     'object'
-      properties:
-        line:   { type: 'number', not: { type: 'null', }, }
-        ch:     { type: 'number', not: { type: 'null', }, }
-      required: [ 'line', 'ch', ]
-    #.........................................................................................................
-    range:
-      # $id:      'http://codemirror.net/types/range'
-      type:     'object'
-      properties:
-        from:       { $ref: 'position', }
-        to:         { $ref: 'position', }
-      required: [ 'from', 'to', ]
-      #.......................................................................................................
-  return R
-
-#-----------------------------------------------------------------------------------------------------------
-get_schema_collection_B = ->
-  R =
-    #.........................................................................................................
-    position:
-      # $id:      'http://codemirror.net/types/position'
-      type:     'object'
-      properties:
-        line:   { type: 'number', nullable: false, }
-        ch:     { type: 'number', nullable: false, }
-      required: [ 'line', 'ch', ]
-    #.........................................................................................................
-    range:
-      # $id:      'http://codemirror.net/types/range'
-      type:     'object'
-      properties:
-        from:       { $ref: 'position', }
-        to:         { $ref: 'position', }
-      required: [ 'from', 'to', ]
-      #.......................................................................................................
-  return R
-
-#-----------------------------------------------------------------------------------------------------------
-get_schema_collection_C = ->
-  R =
-    #.........................................................................................................
-    position:
-      # $id:      'http://codemirror.net/types/position'
-      type:     'object'
-      properties:
-        line:   { type: 'number', }
-        ch:     { type: 'number', }
-      required: [ 'line', 'ch', ]
-    #.........................................................................................................
-    range:
-      # $id:      'http://codemirror.net/types/range'
-      type:     'object'
-      properties:
-        from:       { $ref: 'position', }
-        to:         { $ref: 'position', }
-      required: [ 'from', 'to', ]
-      #.......................................................................................................
-  return R
-
-#-----------------------------------------------------------------------------------------------------------
-get_schema_collection_D = ->
-  R =
-    #.........................................................................................................
-    position:
-      # $id:      'http://codemirror.net/types/position'
-      type:     'object'
-      properties:
-        line:   { type: [ 'number', 'null', ], default: 0, }
-        ch:     { type: [ 'number', 'null', ], default: 0, }
-      required: [ 'line', 'ch', ]
-  return R
-
-#-----------------------------------------------------------------------------------------------------------
-get_schema_collection_E = ->
-  R =
-    #.........................................................................................................
-    position:
-      # $id:      'http://codemirror.net/types/position'
-      type:     'object'
-      properties:
-        line:   { type: 'number', default: 0, }
-        ch:     { type: 'number', default: 0, }
-      required: [ 'line', 'ch', ]
-  return R
-
-
-#   schema =
-#     # properties:
-#     #   foo:  { type: 'integer', }
-#     #   bar:  { type: 'boolean', }
-#     # required: [ 'foo', 'bar', ]
-#     # additionalProperties: false
-#     $id: 'foobar'
-#     properties:
-#       abs:    { type: 'number', }
-#       rel:    { type: 'number', }
-#       lines:  { type: [ 'boolean', 'string', ], }
-#     # required:             [ 'foo', 'bar', ]
-#     additionalProperties: false
-
-#   hub       = ITYPE.new_validation_hub()
-#   ITYPE.add_schema hub, schema
-
-#   probes = [
-#     { abs: '0.8', }
-#     { abs: '0.8', lines: '', }
-#     { rel: '0.8', }
-#     { rel: '0.8', lines: '', }
-#     { foo: '1', bar: 'true', baz: 'true' }
-#     # { foo: '1.1', bar: 'f', baz: 'true' }
-#     # {}
-#     # { foo: '1', bar: 'true', }
-#     ]
-#   for probe in probes
-#     echo()
-#     try
-#       ITYPE.validate hub, 'foobar', probe
-#     catch error
-#       warn error.message
-#       continue
-#     help probe
-
+isa                       = require '../..'
 
 
 #-----------------------------------------------------------------------------------------------------------
-@[ "references 1" ] = ( T, done ) ->
+@[ "test type_of" ] = ( T ) ->
+  T.eq ( isa new WeakMap()            ), 'weakmap'
+  T.eq ( isa new Map()                ), 'map'
+  T.eq ( isa new Set()                ), 'set'
+  T.eq ( isa new Date()               ), 'date'
+  T.eq ( isa new Error()              ), 'error'
+  T.eq ( isa []                       ), 'list'
+  T.eq ( isa true                     ), 'boolean'
+  T.eq ( isa false                    ), 'boolean'
+  T.eq ( isa ( -> )                   ), 'function'
+  T.eq ( isa ( -> yield 123 )         ), 'generatorfunction'
+  T.eq ( isa ( -> yield 123 )()       ), 'generator'
+  T.eq ( isa ( -> await f() )         ), 'asyncfunction'
+  T.eq ( isa null                     ), 'null'
+  T.eq ( isa 'helo'                   ), 'text'
+  T.eq ( isa undefined                ), 'undefined'
+  T.eq ( isa arguments                ), 'arguments'
+  T.eq ( isa global                   ), 'global'
+  T.eq ( isa /^xxx$/g                 ), 'regex'
+  T.eq ( isa {}                       ), 'pod'
+  T.eq ( isa NaN                      ), 'nan'
+  T.eq ( isa 1 / 0                    ), 'infinity'
+  T.eq ( isa -1 / 0                   ), 'infinity'
+  T.eq ( isa 12345                    ), 'number'
+  T.eq ( isa new Buffer 'helo'        ), 'buffer'
+  T.eq ( isa new ArrayBuffer 42       ), 'arraybuffer'
   #.........................................................................................................
-  probes_and_matchers = [
-    [['position', { line: 42, ch: 21, },                                            ], true, null, ]
-    [['range',    { from: { line: 42, ch: 21, },    to: { line: 10, ch: 11, }, },   ], true, null, ]
-    #.......................................................................................................
-    [['position', { line: 42, },                                                    ], null, "property : should have required property 'ch'", ]
-    [['position', { line: 42, ch: null, },                                          ], null, "property .ch: should NOT be valid", ]
-    [['position', { line: 42, ch: 'x', },                                           ], null, "property .ch: should be number", ]
-    [['range',    { from: { line: 42, },            to: { line: 10, ch: 11, }, },   ], null, "property .from: should have required property 'ch'", ]
-    [['range',    { from: { line: 42, ch: 21, },    to: { line: 10, ch: null, }, }, ], null, "property .to.ch: should NOT be valid", ]
-    [['range',    { from: { line: 42, ch: null, },  to: { line: 10, ch: 11, }, },   ], null, "property .from.ch: should NOT be valid", ]
-    [['range',    { from: { line: 42, ch: 'x', },   to: { line: 10, ch: 11, }, },   ], null, "property .from.ch: should be number", ]
-    ]
+  T.eq ( isa new Int8Array         5  ), 'int8array'
+  T.eq ( isa new Uint8Array        5  ), 'uint8array'
+  T.eq ( isa new Uint8ClampedArray 5  ), 'uint8clampedarray'
+  T.eq ( isa new Int16Array        5  ), 'int16array'
+  T.eq ( isa new Uint16Array       5  ), 'uint16array'
+  T.eq ( isa new Int32Array        5  ), 'int32array'
+  T.eq ( isa new Uint32Array       5  ), 'uint32array'
+  T.eq ( isa new Float32Array      5  ), 'float32array'
+  T.eq ( isa new Float64Array      5  ), 'float64array'
   #.........................................................................................................
-  hub = ITYPE.new_validation_hub()
-  ITYPE.add_schema_collection hub, get_schema_collection_A()
-  #.........................................................................................................
-  for [ probe, matcher, error, ] in probes_and_matchers
-    # matcher = CND.deep_copy probe
-    [ typename, data, ] = probe
-    matcher = data if matcher is true
-    await T.perform probe, matcher, error, -> return new Promise ( resolve, reject ) ->
-      result = ITYPE.validate hub, typename, data
-      throw new Error "expected same object, got another one" unless result is data
-      resolve result
-      return null
-  done()
   return null
 
 #-----------------------------------------------------------------------------------------------------------
-@[ "non-nullables" ] = ( T, done ) ->
-  #.........................................................................................................
-  probes_and_matchers = [
-    [['position', { line: 42, ch: 21, },                                            ], true, null, ]
-    [['range',    { from: { line: 42, ch: 21, },    to: { line: 10, ch: 11, }, },   ], true, null, ]
-    #.......................................................................................................
-    [['position', { line: 42, },                                                    ], null, "property : should have required property 'ch'", ]
-    [['position', { line: 42, ch: 'x', },                                           ], null, "property .ch: should be number", ]
-    [['range',    { from: { line: 42, },            to: { line: 10, ch: 11, }, },   ], null, "property .from: should have required property 'ch'", ]
-    [['range',    { from: { line: 42, ch: 'x', },   to: { line: 10, ch: 11, }, },   ], null, "property .from.ch: should be number", ]
-    [['range',    { from: { line: 42, ch: null, },  to: { line: 10, ch: 11, }, },   ], null, "property .from.ch: should be number", ]
-    [['position', { line: 42, ch: null, },                                          ], null, "property .ch: should be number", ]
-    [['range',    { from: { line: 42, ch: 21, },    to: { line: 10, ch: null, }, }, ], null, "property .to.ch: should be number", ]
-    ]
-  #.........................................................................................................
-  for schema_getter in [ get_schema_collection_A, get_schema_collection_B, get_schema_collection_C, ]
-    hub = ITYPE.new_validation_hub()
-    ITYPE.add_schema_collection hub, schema_getter()
-    #.......................................................................................................
-    for [ probe, matcher, error, ] in probes_and_matchers
-      # matcher = CND.deep_copy probe
-      [ typename, data, ] = probe
-      matcher = data if matcher is true
-      await T.perform probe, matcher, error, -> return new Promise ( resolve, reject ) ->
-        result = ITYPE.validate hub, typename, data
-        throw new Error "expected same object, got another one" unless result is data
-        resolve result
-        return null
-  done()
-  return null
+@[ "test size_of" ] = ( T ) ->
+  # debug ( new Buffer '𣁬', ), ( '𣁬'.codePointAt 0 ).toString 16
+  # debug ( new Buffer '𡉜', ), ( '𡉜'.codePointAt 0 ).toString 16
+  # debug ( new Buffer '𠑹', ), ( '𠑹'.codePointAt 0 ).toString 16
+  # debug ( new Buffer '𠅁', ), ( '𠅁'.codePointAt 0 ).toString 16
+  T.eq ( isa.size_of [ 1, 2, 3, 4, ]                                    ), 4
+  T.eq ( isa.size_of new Buffer [ 1, 2, 3, 4, ]                         ), 4
+  T.eq ( isa.size_of '𣁬𡉜𠑹𠅁'                                             ), 2 * ( Array.from '𣁬𡉜𠑹𠅁' ).length
+  T.eq ( isa.size_of '𣁬𡉜𠑹𠅁', count: 'codepoints'                        ), ( Array.from '𣁬𡉜𠑹𠅁' ).length
+  T.eq ( isa.size_of '𣁬𡉜𠑹𠅁', count: 'codeunits'                         ), 2 * ( Array.from '𣁬𡉜𠑹𠅁' ).length
+  T.eq ( isa.size_of '𣁬𡉜𠑹𠅁', count: 'bytes'                             ), ( new Buffer '𣁬𡉜𠑹𠅁', 'utf-8' ).length
+  T.eq ( isa.size_of 'abcdefghijklmnopqrstuvwxyz'                       ), 26
+  T.eq ( isa.size_of 'abcdefghijklmnopqrstuvwxyz', count: 'codepoints'  ), 26
+  T.eq ( isa.size_of 'abcdefghijklmnopqrstuvwxyz', count: 'codeunits'   ), 26
+  T.eq ( isa.size_of 'abcdefghijklmnopqrstuvwxyz', count: 'bytes'       ), 26
+  T.eq ( isa.size_of 'ä'                                                ), 1
+  T.eq ( isa.size_of 'ä', count: 'codepoints'                           ), 1
+  T.eq ( isa.size_of 'ä', count: 'codeunits'                            ), 1
+  T.eq ( isa.size_of 'ä', count: 'bytes'                                ), 2
+  T.eq ( isa.size_of new Map [ [ 'foo', 42, ], [ 'bar', 108, ], ]       ), 2
+  T.eq ( isa.size_of new Set [ 'foo', 42, 'bar', 108, ]                 ), 4
+  T.eq ( isa.size_of { 'foo': 42, 'bar': 108, 'baz': 3, }                           ), 3
+  T.eq ( isa.size_of { '~isa': 'XYZ/yadda', 'foo': 42, 'bar': 108, 'baz': 3, }      ), 4
 
 #-----------------------------------------------------------------------------------------------------------
-@[ "nullables" ] = ( T, done ) ->
-  #.........................................................................................................
-  probes_and_matchers = [
-    [['position', { line: 42, ch: 21, },                                            ], true, null, ]
-    [['position', { line: 42, ch: null, },                                          ], true, null, ]
-    ]
-  #.........................................................................................................
-  for schema_getter in [ get_schema_collection_D, ]
-    hub = ITYPE.new_validation_hub()
-    ITYPE.add_schema_collection hub, schema_getter()
-    #.......................................................................................................
-    for [ probe, matcher, error, ] in probes_and_matchers
-      # matcher = CND.deep_copy probe
-      [ typename, data, ] = probe
-      matcher = data if matcher is true
-      await T.perform probe, matcher, error, -> return new Promise ( resolve, reject ) ->
-        result = ITYPE.validate hub, typename, data
-        throw new Error "expected same object, got another one" unless result is data
-        resolve result
-        return null
-  done()
-  return null
+@[ "_demo" ] = ( T ) ->
+  isa = @
 
-#-----------------------------------------------------------------------------------------------------------
-@[ "defaults" ] = ( T, done ) ->
-  #.........................................................................................................
-  probes_and_matchers = [
-    [['position', { line: 42, ch: 21, },   ], { line: 42, ch: 21, }, null, ]
-    [['position', { line: 42, ch: null, }, ], { line: 42, ch: 0, }, null, ]
-    [['position', { line: 42, }, ], { line: 42, ch: 0, }, null, ]
-    ]
-  #.........................................................................................................
-  # for schema_getter in [ get_schema_collection_D, ]
-  for schema_getter in [ get_schema_collection_E, ]
-    hub = ITYPE.new_validation_hub()
-    ITYPE.add_schema_collection hub, schema_getter()
-    #.......................................................................................................
-    for [ probe, matcher, error, ] in probes_and_matchers
-      # matcher = CND.deep_copy probe
-      [ typename, data, ] = probe
-      matcher = data if matcher is true
-      await T.perform probe, matcher, error, -> return new Promise ( resolve, reject ) ->
-        result = ITYPE.validate hub, typename, data
-        throw new Error "expected same object, got another one" unless result is data
-        resolve result
-        return null
-  done()
-  return null
+  x =
+    foo: 42
+    bar: 108
+  y = Object.create x
+  y.bar = 'something'
+  y.baz = 'other thing'
+
+  ```
+  const person = {
+    isHuman: false,
+    printIntroduction: function () {
+      console.log(`My name is ${this.name}. Am I human? ${this.isHuman}`);
+    }
+  };
+
+  const me = Object.create(person);
+  me.name = "Matthew"; // "name" is a property set on "me", but not on "person"
+  me.isHuman = true; // inherited properties can be overwritten
+
+  me.printIntroduction();
+
+  ```
+  # urge me.prototype?
+  # urge me.__proto__?
+
+  info 'µ1', jr isa.generator_function isa.all_own_keys_of
+  info 'µ2', jr isa.values_of isa.all_own_keys_of 'abc'
+  info 'µ3', jr isa.values_of isa.all_keys_of 'abc'
+  info 'µ4', jr isa.values_of isa.all_keys_of x
+  info 'µ5', jr isa.values_of isa.all_keys_of y
+  info 'µ5', jr isa.values_of isa.all_keys_of y, true
+  info 'µ6', jr isa.values_of isa.all_keys_of me
+  info 'µ7', jr isa.values_of isa.all_keys_of {}
+  info 'µ8', jr isa.values_of isa.all_keys_of Object.create null
+  info 'µ9', isa.keys_of me
+  info 'µ9', jr isa.values_of isa.keys_of me
+  # info 'µ10', jr ( k for k of me )
+  # info 'µ11', jr Object.keys me
+  # info 'µ12', isa.values_of isa.all_own_keys_of true
+  # info 'µ13', isa.values_of isa.all_own_keys_of undefined
+  # info 'µ14', isa.values_of isa.all_own_keys_of null
+
+  # debug '' + rpr Object.create null
+  # debug isa.values_of isa.all_keys_of Object::
+
+  urge CND.type_of ( -> )
+  urge CND.type_of ( -> yield 4 )
+  urge CND.type_of ( -> yield 4 )()
+  urge CND.type_of ( -> await f() )
+  urge CND.isa ( -> ), 'function'
+  urge CND.isa ( -> yield 4 ), 'function'
+  urge CND.isa ( -> yield 4 )(), 'function'
+  urge CND.isa ( -> await f() ), 'function'
+
+
+
+
 
 
 ############################################################################################################
 unless module.parent?
   test @
-  # test @[ "references 1" ]
-
-
-
-
