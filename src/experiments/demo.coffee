@@ -69,10 +69,12 @@ info 'µ0102-11', isa.has_only_keys { line: 42, ch: 33, }, [ 'line', 'ch', 'othe
 
 
 
-urge 'µ44433', ( isa.values_of isa.keys_of isa.validate )
-urge 'µ44433', isa.validate.integer 123
-urge 'µ44433', isa.validate.integer 123.456, "that should've been an $type: $value"
-
+urge 'µ44433-1', ( isa.values_of isa.keys_of isa.validate )
+urge 'µ44433-2', isa.validate.integer 123
+try urge 'µ44433-3', isa.validate.integer 123, "that should've been an $type: $value" catch error then warn error.message
+try urge 'µ44433-4', isa.validate.integer 123.456, "that should've been an $type: $value" catch error then warn error.message
+try urge 'µ44433-5', isa.validate.has_keys {}, 'foo'
+# try urge 'µ44433-6', isa.validate.multiple_of 3, 6, "that should've been an $type: $value" catch error then warn error.message
 
 
 
