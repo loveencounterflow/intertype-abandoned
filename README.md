@@ -1,2 +1,5 @@
-# intertype
-A typechecker built on Ajv
+
+# InterType
+
+A JavaScript typechecker
+

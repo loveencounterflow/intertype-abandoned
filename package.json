@@ -1,7 +1,7 @@
 {
   "name": "intertype",
   "version": "0.0.1",
-  "description": "A typechecker built on Ajv",
+  "description": "A JavaScript typechecker",
   "main": "lib/main.js",
   "scripts": {
     "test": "node lib/tests/main.test.js"
