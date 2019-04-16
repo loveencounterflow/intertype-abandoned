@@ -23,6 +23,7 @@ echo                      = CND.echo.bind CND
 #...........................................................................................................
 test                      = require 'guy-test'
 isa                       = require '../..'
+{ jr }                    = CND
 
 
 #-----------------------------------------------------------------------------------------------------------
@@ -149,10 +150,58 @@ isa                       = require '../..'
   urge CND.isa ( -> await f() ), 'function'
 
 
-
-
-
+#-----------------------------------------------------------------------------------------------------------
+@[ "multiple tests" ] = ( T, done ) ->
+  #.........................................................................................................
+  probes_and_matchers = [
+    ["isa.number( 42 )",true,null]
+    ["isa.finite_number( 42 )",true,null]
+    ["isa.infinity( Infinity )",true,null]
+    ["isa.infinity( 42 )",false,null]
+    ["isa.integer( 42 )",true,null]
+    ["isa.integer( 42.1 )",false,null]
+    ["isa.count( 42 )",true,null]
+    ["isa.count( -42 )",false,null]
+    ["isa.count( 42.1 )",false,null]
+    ["isa.callable( 42.1 )",false,null]
+    ["isa.extends( 'function', 'callable' )",true,null]
+    ["isa.extends( 'safe_integer', 'integer' )",true,null]
+    ["isa.extends( 'safe_integer', 'number' )",true,null]
+    ["isa.type_of( 42 )","number",null]
+    ["isa.type_of( 42.1 )","number",null]
+    ["isa.supertype_of( 42 )","number",null]
+    ["isa.supertype_of( 42.1 )","number",null]
+    ["isa.multiple_of( 33, 3 )",true,null]
+    ["isa.multiple_of( 33, 11 )",true,null]
+    ["isa.multiple_of( 5, 2.5 )",true,null]
+    ["isa.multiple_of( 5, 2.6 )",false,null]
+    ["isa.even( Infinity )",false,null]
+    ["isa.odd( Infinity )",false,null]
+    ["isa.callable( () => {} )",true,null]
+    ["isa.type_of( () => {} )","function",null]
+    ["isa.type_of( async () => { return await f() } )","asyncfunction",null]
+    ["isa.supertype_of( () => {} )","callable",null]
+    ["isa.supertype_of( async () => { return await f(); } )","callable",null]
+    ["isa.callable( function() {} )",true,null]
+    ["isa.type_of( function() {} )","function",null]
+    ["isa.type_of( async function() { return await f(); } )","asyncfunction",null]
+    ["isa.supertype_of( function() {} )","callable",null]
+    ["isa.supertype_of( async function() { return await f(); } )","callable",null]
+    ]
+  #.........................................................................................................
+  for [ probe, matcher, error, ] in probes_and_matchers
+    await T.perform probe, matcher, error, -> return new Promise ( resolve, reject ) ->
+      result = eval probe
+      # log jr [ probe, result, ]
+      # resolve result
+      resolve result
+      return null
+  done()
+  return null
 
 ############################################################################################################
 unless module.parent?
   test @
+  # test @[ "multiple tests" ]
+
+

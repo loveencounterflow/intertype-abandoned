@@ -28,6 +28,7 @@ ity_by_cnd =
   buffer:               'buffer'
   function:             'function'
   generator:            'generator'
+  # async_function:   'asyncfunction'
   generator_function:   'generatorfunction'
   infinity:             'infinity'
   jsarraybuffer:        'arraybuffer'
@@ -47,34 +48,25 @@ ity_by_cnd =
 cnd_by_ity  = {}
 
 #-----------------------------------------------------------------------------------------------------------
-# @boolean              = CND.isa_boolean
-# @buffer               = CND.isa_buffer
-# @function             = CND.isa_function
-# @generator            = CND.isa_generator
-# @generatorfunction    = CND.isa_generator_function
-# @infinity             = CND.isa_infinity
-# # @jsarguments          = CND.isa_jsarguments
-# @arraybuffer        = CND.isa_jsarraybuffer
-# @nodejs_buffer             = CND.isa_jsbuffer
-# # @jsctx                = CND.isa_jsctx
-# # @jsdate               = CND.isa_jsdate
-# @error              = CND.isa_jserror
-# @global             = CND.isa_jsglobal
-# @nan         = CND.isa_jsnotanumber
-# @regex              = CND.isa_jsregex
-# @undefined          = CND.isa_jsundefined
-# # @jswindow             = CND.isa_jswindow
-# @list                 = CND.isa_list
-# @null                 = CND.isa_null
-# @nullorundefined      = CND.isa_nullorundefined
-# @number               = CND.isa_number
-# ### TAINT object/pod distinction? ###
-# @object               = CND.isa_object
-# @pod                  = CND.isa_pod
-# @primitive            = CND.isa_primitive
-# @symbol               = CND.isa_symbol
-# @text                 = CND.isa_text
+@integer          = Number.isInteger
+@finite_number    = Number.isFinite
+@safe_integer     = Number.isSafeInteger
+@count            = ( x ) -> ( @safe_integer x ) and ( x >= 0 )
+@asyncfunction    = ( x ) -> ( @type_of x ) is 'asyncfunction'
+@boundfunction    = ( x ) -> ( ( @supertype_of x ) is 'callable' ) and ( not Object.hasOwnProperty x, 'prototype' )
+@callable         = ( x ) -> ( @type_of x ) in [ 'function', 'asyncfunction', 'generatorfunction', ]
+@positive         = ( x ) -> ( @number x ) and ( x >  0 )
+@nonnegative      = ( x ) -> ( @number x ) and ( x >= 0 )
+@negative         = ( x ) -> ( @number x ) and ( x <  0 )
+@even             = ( x ) -> ( @finite_number x ) and     @multiple_of x, 2
+@odd              = ( x ) -> ( @finite_number x ) and not @multiple_of x, 2
+@multiple_of      = ( x, d ) -> ( @finite_number x ) and ( x %% d ) is 0
 
+#-----------------------------------------------------------------------------------------------------------
+@arity = ( x ) ->
+  unless ( type = @supertype_of x ) is 'callable'
+    throw new Error "µ88733 expected a callable, got a #{type}"
+  return x.length
 
 
 #===========================================================================================================
@@ -95,29 +87,35 @@ cnd_by_ity  = {}
 #===========================================================================================================
 #
 #-----------------------------------------------------------------------------------------------------------
-# function_types    = new Set [ 'generatorfunction', 'generator', 'asyncfunction', ]
-# @function         = ( x ) -> function_types.has ( @isa x )
-# @proper_function  = ( x ) -> @isa x )
-#-----------------------------------------------------------------------------------------------------------
-synonyms =
-  string: 'text'
+# synonyms =
+#   string: 'text'
 
 #-----------------------------------------------------------------------------------------------------------
 @extensions =
-  boundfunction:      'function'
-  generator:          'function'
-  generatorfunction:  'function'
-  asyncfunction:      'function'
+  function:           'callable'
+  boundfunction:      'callable'
+  generatorfunction:  'callable'
+  asyncfunction:      'callable'
+  safe_integer:       'integer'
+  integer:            'number'
+  float:              'number'
 
 #-----------------------------------------------------------------------------------------------------------
 @extends = ( subtype, supertype ) ->
   ### TAINT use validation functions with arguments ###
-  throw new Error "µ63231 expected 2 arguments, got #{arity}" unless arity is 2
+  throw new Error "µ63231 expected 2 arguments, got #{arity}" unless ( arity = arguments.length  ) is 2
   throw new Error "µ63308 expected a text, got a #{type}"     unless ( type = @type_of subtype   ) is 'text'
   throw new Error "µ63385 expected a text, got a #{type}"     unless ( type = @type_of supertype ) is 'text'
   return true if subtype is supertype
-  return @[ subtype ] is supertype
+  return ( @extensions[ subtype ] is supertype ) or ( @extends @extensions[ subtype ], supertype )
 
+#-----------------------------------------------------------------------------------------------------------
+@supertype_of = ( x ) -> @supertype_of_type @type_of x
+
+#-----------------------------------------------------------------------------------------------------------
+@supertype_of_type = ( type ) ->
+  return type unless ( supertype = @extensions[ type ] )?
+  return @supertype_of_type supertype
 
 #===========================================================================================================
 # LISTS
@@ -192,7 +190,8 @@ do ->
   for cnd_type, ity_type of ity_by_cnd
     #.......................................................................................................
     ### Generate entries to cnd_by_ity: ###
-    ### TAINT should check for name clashes ###
+    if cnd_by_ity[ ity_type ]?
+      throw new Error "µ49833 name collision in cnd_by_ity: #{rpr ity_type}"
     cnd_by_ity[ ity_type ] = cnd_type
     #.......................................................................................................
     ### Generate mappings from `isa.$type()` to CND.isa_$type()`: ###
@@ -200,12 +199,12 @@ do ->
     # debug 'µ8498', cnd_type, ity_type, cnd_key, CND.type_of CND[ cnd_key ]
     unless ( type = CND.type_of ( cnd_method = CND[ cnd_key ] ) ) is 'function'
       throw new Error "µ63693 expected a function for `CND.#{cnd_key}`, found a #{type}"
-    self[ ity_type ] = cnd_method.bind CND
+    self[ ity_type ] ?= cnd_method.bind CND ### avoid to overwrite existing methods ###
 
   #---------------------------------------------------------------------------------------------------------
   ### Bind all functions to `module.exports`: ###
   for key, value of self
-    ### TAINT use isa_callable ###
+    ### TAINT use isa.callable ###
     if CND.isa_function value
       isa[ key ] = value.bind isa
     else
