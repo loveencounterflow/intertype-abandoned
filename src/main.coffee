@@ -118,6 +118,10 @@ get_rprs_of_tprs = ( tprs ) ->
   #.........................................................................................................
   tester    = tester.bind @
   #.........................................................................................................
+  ### Add supertype: ###
+  if ( supertype = settings.supertype )?
+    @add_supertype type, supertype
+  #.........................................................................................................
   ### Add type tester method: ###
   @[ type ] = ( x, tprs... ) =>
     R = tester x, tprs...
@@ -154,14 +158,15 @@ get_rprs_of_tprs = ( tprs ) ->
 #===========================================================================================================
 # SUB- AND SUPERTYPES
 #-----------------------------------------------------------------------------------------------------------
+### TAINT consider to use specialized tree structure module ###
 @supertypes =
   function:           'callable'
-  boundfunction:      'callable'
   generatorfunction:  'callable'
-  asyncfunction:      'callable'
-  safe_integer:       'integer'
-  integer:            'number'
-  float:              'number'
+  # boundfunction:      'callable'
+  # asyncfunction:      'callable'
+  # safe_integer:       'integer'
+  # integer:            'number'
+  # float:              'number'
 
 #-----------------------------------------------------------------------------------------------------------
 @add_supertype = ( subtype, supertype ) ->
@@ -169,7 +174,7 @@ get_rprs_of_tprs = ( tprs ) ->
   throw new Error "µ63231 expected 2 arguments, got #{arity}" unless ( arity = arguments.length  ) is 2
   throw new Error "µ63308 expected a text, got a #{type}"     unless ( type = @type_of subtype   ) is 'text'
   throw new Error "µ63385 expected a text, got a #{type}"     unless ( type = @type_of supertype ) is 'text'
-  if ( supertype = @supertypes[ subtype ] )?
+  if ( @supertypes[ subtype ] )?
     throw new Error "µ33981 subtype #{rpr subtype} already has a supertype (#{rpr supertype})"
   @supertypes[ subtype ] = supertype
   return null
@@ -180,12 +185,18 @@ get_rprs_of_tprs = ( tprs ) ->
   throw new Error "µ63231 expected 2 arguments, got #{arity}" unless ( arity = arguments.length  ) is 2
   throw new Error "µ63308 expected a text, got a #{type}"     unless ( type = @type_of subtype   ) is 'text'
   throw new Error "µ63385 expected a text, got a #{type}"     unless ( type = @type_of supertype ) is 'text'
-  return @_extends subtype, supertype
+  return @_extends subtype, supertype, [ subtype, ]
 
 #-----------------------------------------------------------------------------------------------------------
-@_extends = ( subtype, supertype ) ->
+@_extends = ( subtype, supertype, trail ) ->
   return true if subtype is supertype
-  return ( @supertypes[ subtype ] is supertype ) or ( @_extends @supertypes[ subtype ], supertype )
+  return false unless ( subsupertype = @supertypes[ subtype ] )?
+  if subsupertype in trail
+    throw new Error "µ44857 detected loop in supertypes: #{rpr trail}"
+  trail.push subsupertype
+  return true if subsupertype is supertype
+  return @_extends subsupertype, supertype, trail
+  # return ( @supertypes[ subtype ] is supertype ) or ( @_extends @supertypes[ subtype ], supertype )
 
 #-----------------------------------------------------------------------------------------------------------
 @supertype_of = ( x ) -> @supertype_of_type @type_of x
@@ -364,23 +375,26 @@ isa.add_type 'map',     { size_of: 'size',  }, ( x ) -> ( Object::toString.call 
 isa.add_type 'weakmap', { size_of: null,    }, ( x ) -> ( Object::toString.call x ) is '[object WeakMap]'
 isa.add_type 'weakset', { size_of: null,    }, ( x ) -> ( Object::toString.call x ) is '[object WeakSet]'
 #-----------------------------------------------------------------------------------------------------------
-isa.add_type 'integer',       Number.isInteger
-isa.add_type 'finite_number', Number.isFinite
-isa.add_type 'safe_integer',  Number.isSafeInteger
-isa.add_type 'count',         ( x ) -> ( @safe_integer x ) and ( x >= 0 )
-isa.add_type 'asyncfunction', ( x ) -> ( @type_of x ) is 'asyncfunction'
-isa.add_type 'boundfunction', ( x ) -> ( ( @supertype_of x ) is 'callable' ) and ( not Object.hasOwnProperty x, 'prototype' )
-isa.add_type 'callable',      ( x ) -> ( @type_of x ) in [ 'function', 'asyncfunction', 'generatorfunction', ]
-isa.add_type 'positive',      ( x ) -> ( @number x ) and ( x >  0 )
-isa.add_type 'negative',      ( x ) -> ( @number x ) and ( x <  0 )
+isa.add_type 'integer',       { supertype: 'number', }, Number.isInteger
+isa.add_type 'finite_number', { supertype: 'number', }, Number.isFinite
+isa.add_type 'positive',      { supertype: 'number', }, ( x ) -> ( @number x ) and ( x >  0 )
+isa.add_type 'negative',      { supertype: 'number', }, ( x ) -> ( @number x ) and ( x <  0 )
+isa.add_type 'nonnegative',   { supertype: 'number', }, ( x ) -> ( @number x ) and ( x >= 0 )
+isa.add_type 'multiple_of',   { supertype: 'number', }, ( x, d ) -> ( @finite_number x ) and ( x %% d ) is 0
+#-----------------------------------------------------------------------------------------------------------
+isa.add_type 'safe_integer',  { supertype: 'integer', }, Number.isSafeInteger
+isa.add_type 'count',         { supertype: 'integer', }, ( x ) -> ( @safe_integer x ) and ( x >= 0 )
+isa.add_type 'even',          { supertype: 'integer', }, ( x ) -> ( @finite_number x ) and     @multiple_of x, 2
+isa.add_type 'odd',           { supertype: 'integer', }, ( x ) -> ( @finite_number x ) and not @multiple_of x, 2
 # isa.add_type 'positive0',     ( x ) -> ( @number x ) and ( x >= 0 )
 # isa.add_type 'negative0',     ( x ) -> ( @number x ) and ( x <= 0 )
-isa.add_type 'nonnegative',   ( x ) -> ( @number x ) and ( x >= 0 )
-isa.add_type 'even',          ( x ) -> ( @finite_number x ) and     @multiple_of x, 2
-isa.add_type 'odd',           ( x ) -> ( @finite_number x ) and not @multiple_of x, 2
-isa.add_type 'multiple_of',   ( x, d ) -> ( @finite_number x ) and ( x %% d ) is 0
+#-----------------------------------------------------------------------------------------------------------
 isa.add_type 'empty',         ( x ) -> ( @size_of x ) is 0
 isa.add_type 'nonempty',      ( x ) -> ( @size_of x ) > 0
+#-----------------------------------------------------------------------------------------------------------
+isa.add_type 'asyncfunction', { supertype: 'callable', }, ( x ) -> ( @type_of x ) is 'asyncfunction'
+isa.add_type 'boundfunction', { supertype: 'callable', }, ( x ) -> ( ( @supertype_of x ) is 'callable' ) and ( not Object.hasOwnProperty x, 'prototype' )
+isa.add_type 'callable',      ( x ) -> ( @type_of x ) in [ 'function', 'asyncfunction', 'generatorfunction', ]
 
 
 

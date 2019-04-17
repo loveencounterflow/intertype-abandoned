@@ -79,6 +79,15 @@ demo = ->
   # try urge 'µ44433-6', isa.validate.multiple_of 3, 6, "that should've been an $type: $value" catch error then warn error.message
 
 #-----------------------------------------------------------------------------------------------------------
+demo_supertypes = ->
+  # help 'µ44455-1', isa.supertypes
+  help 'µ44455-1', isa.extends( 'odd', 'number' )
+  help 'µ44455-2', isa.extends( 'odd', 'integer' )
+  help 'µ44455-3', isa.extends( 'integer', 'number' )
+  help 'µ44455-4', isa.extends( 'safe_integer', 'integer' )
+  help 'µ44455-4', isa.extends( 'safe_integer', 'text' )
+
+#-----------------------------------------------------------------------------------------------------------
 demo_object_shapes = ->
   isa.add_type 'nonempty_text', ( x ) -> ( @text x  ) and ( @nonempty x )
   isa.add_type 'triple',        ( x ) -> ( @count x ) and ( @multiple_of x, 3 ) and ( x < 10 )
@@ -90,23 +99,39 @@ demo_object_shapes = ->
     catch error
       warn error.message
   #.........................................................................................................
-  isa.add_type 'foobarcat', ( x ) ->
+  isa.add_type 'foobarcat', { supertype: 'pod', }, ( x ) ->
     return false unless @pod            x
-    return false unless @has_only_keys  x, 'foo', 'bar', 'cat'
+    return false unless @has_keys       x, 'foo', 'bar', 'cat'
     return false unless @nonempty_text  x.bar
     return false unless @nonempty_text  x.cat
     return true
   #.........................................................................................................
+  isa.add_type 'foobarflapcat', { supertype: 'foobarcat', }, ( x ) ->
+    ### TAINT shouldn't have to check manually for supertype ###
+    return false unless @foobarcat  x
+    return false unless @has_keys   x, 'flap'
+    # return false unless @count      x.flap
+  #.........................................................................................................
   probes = [
+    { foo: 3, bar: 'a text', }
     { foo: 3, bar: 'a text', cat: '', }
     { foo: 3, bar: 'a text', cat: 'cats!', }
+    { foo: 3, bar: 'a text', cat: 'cats!', flap: 3, }
+    { foo: 3, bar: 'a text', cat: 'cats!', flap: -3, }
     ]
+  #.........................................................................................................
   for probe in probes
-    try
-      help ( jr probe ), isa.validate.foobarcat probe
-    catch error
-      warn error.message
-  isa.number 56.78
+    for type in [ 'foobarcat', 'foobarflapcat', ]
+      help ( jr probe ), ( type )
+      try
+        isa.validate[ type ] probe
+        urge 'ok'
+      catch error
+        warn error.message
+  #.........................................................................................................
+  info isa.supertype_of_type 'safe_integer'
+  info isa.supertype_of_type 'foobarcat'
+  info isa.supertype_of_type 'foobarflapcat'
   return null
 
 #-----------------------------------------------------------------------------------------------------------
@@ -124,6 +149,7 @@ demo_nested_errors = ->
 
 ############################################################################################################
 # demo()
+# demo_supertypes()
 demo_object_shapes()
 # demo_nested_errors()
 
