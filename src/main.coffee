@@ -16,6 +16,17 @@ info                      = CND.get_logger 'info',      badge
   jr }                    = CND
 flatten                   = require 'lodash/flattenDeep'
 isa_type                  = Symbol 'isa_type'
+# @_current_errors = []
+# @_start_validating = ->
+#   @_is_validating         = true
+#   @_current_errors.length = 0
+# @_stop_validating = ->
+#   @_is_validating         = false
+#   if @_current_errors.length isnt 0
+#     debug 'µ22822', @_current_errors
+#   @_current_errors.length = 0
+# @_push_validation_error = ( error ) ->
+#   @_current_errors.push error.message
 
 #-----------------------------------------------------------------------------------------------------------
 ity_by_cnd =
@@ -43,6 +54,7 @@ ity_by_cnd =
   null:                 'null'
   number:               'number'
   text:                 'text'
+  # set:                  'set'
 #                 jsarguments:          'jsarguments'
 #                 jsctx:                'jsctx'
 #                 jsdate:               'jsdate'
@@ -60,7 +72,10 @@ cnd_by_ity  = {}
 #-----------------------------------------------------------------------------------------------------------
 @validate = ( x, type, message = null ) ->
   throw new Error "µ63077 unknown type #{rpr type}" unless ( tester = @[ type ] )?
-  unless tester x
+  # @_start_validating() unless @_is_validating
+  result = tester x
+  # @_stop_validating()
+  unless result
     if message?
       message = message.replace /\$type/g,  type
       message = message.replace /\$value/g, rpr x
@@ -70,13 +85,65 @@ cnd_by_ity  = {}
   return null
 
 #-----------------------------------------------------------------------------------------------------------
-@add_type = ( type, f, overwrite = false ) ->
-  if ( not overwrite ) and ( @[ type ] isnt undefined )
+_size_of =
+  list:       'length'
+  # arguments:  'length'
+  buffer:     'length'
+  set:        'size'
+  map:        'size'
+  #.........................................................................................................
+  global:     ( x ) => ( @all_keys_of x ).length
+  pod:        ( x ) => ( @keys_of     x ).length
+  #.........................................................................................................
+  text:       ( x, selector = 'codeunits' ) ->
+    switch selector
+      when 'codepoints' then return ( Array.from x ).length
+      when 'codeunits'  then return x.length
+      when 'bytes'      then return Buffer.byteLength x, ( settings?[ 'encoding' ] ? 'utf-8' )
+      else throw new Error "unknown counting selector #{rpr selector}"
+
+#-----------------------------------------------------------------------------------------------------------
+@add_type = ( type, settings, f ) ->
+  switch ( arity = arguments.length )
+    when 2 then [ type, settings, f, ] = [ type, null, settings, ]
+    when 3 then null
+    else throw new Error "µ29892 expected 2 or 3 arguments, got #{arity}"
+  defaults = { overwrite: false, size_of: ( settings?.size_of ? _size_of[ type ] ? null ), }
+  settings = if settings? then ( assign {}, settings, defaults ) else defaults
+  #.........................................................................................................
+  if ( not settings.overwrite ) and ( @[ type ] isnt undefined )
     throw new Error "name #{rpr type} already defined"
   f                     = f.bind @
-  @[ type ]             = f
+  # f[ isa_type ]         = true
+  @[ type ]             = ( x, P... ) => f x, P...
+  # @[ type ]             = ( x, P... ) =>
+  #   if @_is_validating
+  #     whisper 'µ67777', ( rpr type ), f[ isa_type ] ? ''
+  #   try
+  #     R = f x, P...
+  #   catch error
+  #     if @_is_validating
+  #       @_push_validation_error error
+  #     throw error
+  #   if ( not R ) and @_is_validating
+  #     rpr_P = switch P.length
+  #       when 0 then ''
+  #       when 1 then rpr P[ 0 ]
+  #       else rpr P
+  #     throw new Error "µ09981 #{rpr x} is not a #{type} #{rpr_P}"
+  #   return R
   @[ type ][ isa_type ] = true
   @validate[ type ]     = ( x, P... ) => @validate x, type, P...
+  #.........................................................................................................
+  do ( s = settings.size_of ) =>
+    if s is null
+      _size_of[ type ] = null
+    else
+      switch type_of_s = @type_of s
+        when 'text'     then _size_of[ type ] = ( x ) -> x[ s ]
+        when 'function' then _size_of[ type ] = s
+        else throw new Error "µ30988 expected null, a text or a function for size_of, got a #{type_of_s}"
+  #.........................................................................................................
   return null
 
 #-----------------------------------------------------------------------------------------------------------
@@ -116,65 +183,67 @@ cnd_by_ity  = {}
   return type unless ( supertype = @extensions[ type ] )?
   return @supertype_of_type supertype
 
-#===========================================================================================================
-# LISTS
-#-----------------------------------------------------------------------------------------------------------
-@first_of   = ( collection ) -> collection[ 0 ]
-@last_of    = ( collection ) -> collection[ collection.length - 1 ]
 
 #===========================================================================================================
 # OBJECT SIZES
 #-----------------------------------------------------------------------------------------------------------
-@size_of = ( x, settings ) ->
-  switch type = CND.type_of x
-    when 'list', 'arguments', 'buffer' then return x.length
-    when 'text'
-      switch selector = settings?[ 'count' ] ? 'codeunits'
-        when 'codepoints' then return ( Array.from x ).length
-        when 'codeunits'  then return x.length
-        when 'bytes'      then return Buffer.byteLength x, ( settings?[ 'encoding' ] ? 'utf-8' )
-        else throw new Error "unknown counting selector #{rpr selector}"
-    when 'set', 'map'     then return x.size
-  if CND.isa_pod x then return ( Object.keys x ).length
-  throw new Error "unable to get size of a #{type}"
+@size_of = ( x, P... ) ->
+  # debug 'µ44744', [ x, P, ]
+  type = CND.type_of x
+  unless ( @function ( getter = _size_of[ type ] ) )
+    throw new Error "µ88793 unable to get size of a #{type}"
+  return getter x, P...
+
+#-----------------------------------------------------------------------------------------------------------
+@first_of   = ( collection ) -> collection[ 0 ]
+@last_of    = ( collection ) -> collection[ collection.length - 1 ]
 
 
 #===========================================================================================================
 #
 #-----------------------------------------------------------------------------------------------------------
-@all_own_keys_of = ( x ) ->
-  unless x?
-    yield return
-  yield k for k in Object.getOwnPropertyNames x
+@keys_of              = ( P... ) -> @values_of @walk_keys_of      P...
+@all_keys_of          = ( P... ) -> @values_of @walk_all_keys_of  P...
+@all_own_keys_of      = ( x    ) -> if x? then Object.getOwnPropertyNames x else []
+@walk_all_own_keys_of = ( x    ) -> yield k for k in @all_own_keys_of x
 
 #-----------------------------------------------------------------------------------------------------------
-@all_keys_of = ( x, skip_object = false ) ->
-  defaults = { skip_object: true, skip_undefined: true, }
-  settings = if settings? then ( assign {}, settings, defaults ) else defaults
-  return @_all_keys_of x, new Set(), settings
-
-#-----------------------------------------------------------------------------------------------------------
-@_all_keys_of = ( x, seen, settings ) ->
-  if ( not settings.skip_object ) and x is Object::
-    yield return
-  # debug 'µ23773', ( rpr x ), ( x:: )
-  for k from @all_own_keys_of x
-    continue if seen.has k
-    seen.add k
-    ### TAINT should use property descriptors to avoid possible side effects ###
-    continue if ( x[ k ] is undefined ) and settings.skip_undefined
-    yield k
-  if ( proto = Object.getPrototypeOf x )?
-    yield from @_all_keys_of proto, seen, settings
-
-#-----------------------------------------------------------------------------------------------------------
-@keys_of = ( x, settings ) ->
+@walk_keys_of = ( x, settings ) ->
   defaults = { skip_undefined: true, }
   settings = if settings? then ( assign {}, settings, defaults ) else defaults
   for k of x
     ### TAINT should use property descriptors to avoid possible side effects ###
     continue if ( x[ k ] is undefined ) and settings.skip_undefined
     yield k
+
+#-----------------------------------------------------------------------------------------------------------
+@walk_all_keys_of = ( x, settings ) ->
+  defaults = { skip_object: true, skip_undefined: true, }
+  settings = if settings? then ( assign {}, settings, defaults ) else defaults
+  return @_walk_all_keys_of x, new Set(), settings
+
+#-----------------------------------------------------------------------------------------------------------
+@_walk_all_keys_of = ( x, seen, settings ) ->
+  if ( not settings.skip_object ) and x is Object::
+    yield return
+  #.........................................................................................................
+  for k from @walk_all_own_keys_of x
+    continue if seen.has k
+    seen.add k
+    ### TAINT should use property descriptors to avoid possible side effects ###
+    ### TAINT trying to access `arguments` causes error ###
+    try value = x[ k ] catch error then continue
+    continue if ( value is undefined ) and settings.skip_undefined
+    if settings.symbol?
+      continue unless value?
+      continue unless value[ settings.symbol ]
+    yield k
+  #.........................................................................................................
+  if ( proto = Object.getPrototypeOf x )?
+    yield from @_walk_all_keys_of proto, seen, settings
+
+#-----------------------------------------------------------------------------------------------------------
+@known_types = -> [ ( @walk_all_keys_of @, { symbol: isa_type } )... ]
 
 #-----------------------------------------------------------------------------------------------------------
 @values_of = ( x ) -> [ x... ]
@@ -194,6 +263,7 @@ cnd_by_ity  = {}
   keys    = ( @values_of @keys_of x ).sort()
   return CND.equals probes, keys
 
+
 #===========================================================================================================
 #
 #-----------------------------------------------------------------------------------------------------------
@@ -206,7 +276,6 @@ isa = ( x, type ) ->
 
 
 ############################################################################################################
-
 self            = @
 isa             = isa.bind @
 module.exports  = isa
@@ -236,25 +305,33 @@ do ->
     # debug 'µ8498', cnd_type, ity_type, cnd_key, CND.type_of CND[ cnd_key ]
     unless ( type = CND.type_of ( cnd_method = CND[ cnd_key ] ) ) is 'function'
       throw new Error "µ63693 expected a function for `CND.#{cnd_key}`, found a #{type}"
-    isa.add_type ity_type, cnd_method.bind CND
+    size_of = _size_of[ ity_type ] ? null
+    isa.add_type ity_type, { size_of, }, cnd_method.bind CND
 
   #---------------------------------------------------------------------------------------------------------
   return null
 
 #-----------------------------------------------------------------------------------------------------------
-isa.add_type 'integer',          Number.isInteger
-isa.add_type 'finite_number',    Number.isFinite
-isa.add_type 'safe_integer',     Number.isSafeInteger
-isa.add_type 'count',            ( x ) -> ( @safe_integer x ) and ( x >= 0 )
-isa.add_type 'asyncfunction',    ( x ) -> ( @type_of x ) is 'asyncfunction'
-isa.add_type 'boundfunction',    ( x ) -> ( ( @supertype_of x ) is 'callable' ) and ( not Object.hasOwnProperty x, 'prototype' )
-isa.add_type 'callable',         ( x ) -> ( @type_of x ) in [ 'function', 'asyncfunction', 'generatorfunction', ]
-isa.add_type 'positive',         ( x ) -> ( @number x ) and ( x >  0 )
-isa.add_type 'nonnegative',      ( x ) -> ( @number x ) and ( x >= 0 )
-isa.add_type 'negative',         ( x ) -> ( @number x ) and ( x <  0 )
-isa.add_type 'even',             ( x ) -> ( @finite_number x ) and     @multiple_of x, 2
-isa.add_type 'odd',              ( x ) -> ( @finite_number x ) and not @multiple_of x, 2
-isa.add_type 'multiple_of',      ( x, d ) -> ( @finite_number x ) and ( x %% d ) is 0
+isa.add_type 'set',     { size_of: 'size',  }, ( x ) -> ( Object::toString.call x ) is '[object Set]'
+isa.add_type 'map',     { size_of: 'size',  }, ( x ) -> ( Object::toString.call x ) is '[object Map]'
+isa.add_type 'weakmap', { size_of: null,    }, ( x ) -> ( Object::toString.call x ) is '[object WeakMap]'
+isa.add_type 'weakset', { size_of: null,    }, ( x ) -> ( Object::toString.call x ) is '[object WeakSet]'
+#-----------------------------------------------------------------------------------------------------------
+isa.add_type 'integer',       Number.isInteger
+isa.add_type 'finite_number', Number.isFinite
+isa.add_type 'safe_integer',  Number.isSafeInteger
+isa.add_type 'count',         ( x ) -> ( @safe_integer x ) and ( x >= 0 )
+isa.add_type 'asyncfunction', ( x ) -> ( @type_of x ) is 'asyncfunction'
+isa.add_type 'boundfunction', ( x ) -> ( ( @supertype_of x ) is 'callable' ) and ( not Object.hasOwnProperty x, 'prototype' )
+isa.add_type 'callable',      ( x ) -> ( @type_of x ) in [ 'function', 'asyncfunction', 'generatorfunction', ]
+isa.add_type 'positive',      ( x ) -> ( @number x ) and ( x >  0 )
+isa.add_type 'nonnegative',   ( x ) -> ( @number x ) and ( x >= 0 )
+isa.add_type 'negative',      ( x ) -> ( @number x ) and ( x <  0 )
+isa.add_type 'even',          ( x ) -> ( @finite_number x ) and     @multiple_of x, 2
+isa.add_type 'odd',           ( x ) -> ( @finite_number x ) and not @multiple_of x, 2
+isa.add_type 'multiple_of',   ( x, d ) -> ( @finite_number x ) and ( x %% d ) is 0
+isa.add_type 'empty',         ( x ) -> ( @size_of x ) is 0
+isa.add_type 'nonempty',      ( x ) -> ( @size_of x ) > 0
 
 
 
