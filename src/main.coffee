@@ -16,17 +16,7 @@ info                      = CND.get_logger 'info',      badge
   jr }                    = CND
 flatten                   = require 'lodash/flattenDeep'
 isa_type                  = Symbol 'isa_type'
-# @_current_errors = []
-# @_start_validating = ->
-#   @_is_validating         = true
-#   @_current_errors.length = 0
-# @_stop_validating = ->
-#   @_is_validating         = false
-#   if @_current_errors.length isnt 0
-#     debug 'µ22822', @_current_errors
-#   @_current_errors.length = 0
-# @_push_validation_error = ( error ) ->
-#   @_current_errors.push error.message
+@_validation_count        = 0
 
 #-----------------------------------------------------------------------------------------------------------
 ity_by_cnd =
@@ -73,15 +63,20 @@ cnd_by_ity  = {}
 @validate = ( x, type, message = null ) ->
   throw new Error "µ63077 unknown type #{rpr type}" unless ( tester = @[ type ] )?
   # @_start_validating() unless @_is_validating
-  result = tester x
+  # debug 'µ44444', x, type, @_validation_count
+  prv_message = ''
+  try
+    result = tester x
+  catch error
+    prv_message = error.message + '\n'
   # @_stop_validating()
   unless result
     if message?
       message = message.replace /\$type/g,  type
       message = message.replace /\$value/g, rpr x
-      throw new Error message
     else
-      throw new Error "µ63154 expected a #{type}, got a #{CND.type_of x}"
+      message = "µ63154 expected a #{type}, got a #{CND.type_of x} (value: #{rpr x})"
+    throw new Error prv_message + message
   return null
 
 #-----------------------------------------------------------------------------------------------------------
@@ -115,25 +110,22 @@ _size_of =
     throw new Error "name #{rpr type} already defined"
   f                     = f.bind @
   # f[ isa_type ]         = true
-  @[ type ]             = ( x, P... ) => f x, P...
-  # @[ type ]             = ( x, P... ) =>
-  #   if @_is_validating
-  #     whisper 'µ67777', ( rpr type ), f[ isa_type ] ? ''
-  #   try
-  #     R = f x, P...
-  #   catch error
-  #     if @_is_validating
-  #       @_push_validation_error error
-  #     throw error
-  #   if ( not R ) and @_is_validating
-  #     rpr_P = switch P.length
-  #       when 0 then ''
-  #       when 1 then rpr P[ 0 ]
-  #       else rpr P
-  #     throw new Error "µ09981 #{rpr x} is not a #{type} #{rpr_P}"
-  #   return R
+  @[ type ]             = ( x, P... ) =>
+    # debug 'µ33333', x, type, @_validation_count
+    R = f x, P...
+    if ( not R ) and ( @_validation_count > 0 )
+      ### TAINT code duplication ###
+      throw new Error "µ11111 not a valid #{type} #{rpr P}: #{rpr x}"
+    return R
   @[ type ][ isa_type ] = true
-  @validate[ type ]     = ( x, P... ) => @validate x, type, P...
+  @validate[ type ]     = ( x, P... ) =>
+    @_validation_count += +1
+    try
+      @validate x, type, P...
+    # catch error
+    finally
+      @_validation_count += -1
+    return null
   #.........................................................................................................
   do ( s = settings.size_of ) =>
     if s is null
@@ -325,8 +317,10 @@ isa.add_type 'asyncfunction', ( x ) -> ( @type_of x ) is 'asyncfunction'
 isa.add_type 'boundfunction', ( x ) -> ( ( @supertype_of x ) is 'callable' ) and ( not Object.hasOwnProperty x, 'prototype' )
 isa.add_type 'callable',      ( x ) -> ( @type_of x ) in [ 'function', 'asyncfunction', 'generatorfunction', ]
 isa.add_type 'positive',      ( x ) -> ( @number x ) and ( x >  0 )
-isa.add_type 'nonnegative',   ( x ) -> ( @number x ) and ( x >= 0 )
 isa.add_type 'negative',      ( x ) -> ( @number x ) and ( x <  0 )
+# isa.add_type 'positive0',     ( x ) -> ( @number x ) and ( x >= 0 )
+# isa.add_type 'negative0',     ( x ) -> ( @number x ) and ( x <= 0 )
+isa.add_type 'nonnegative',   ( x ) -> ( @number x ) and ( x >= 0 )
 isa.add_type 'even',          ( x ) -> ( @finite_number x ) and     @multiple_of x, 2
 isa.add_type 'odd',           ( x ) -> ( @finite_number x ) and not @multiple_of x, 2
 isa.add_type 'multiple_of',   ( x, d ) -> ( @finite_number x ) and ( x %% d ) is 0

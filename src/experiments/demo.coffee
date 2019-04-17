@@ -79,9 +79,9 @@ demo = ->
 
 #-----------------------------------------------------------------------------------------------------------
 demo_object_shapes = ->
+	isa.add_type 'nonempty_text', ( x ) -> ( @text x  ) and ( @nonempty x )
+	isa.add_type 'triple', 				( x ) -> ( @count x ) and ( @multiple_of x, 3 ) and ( x < 10 )
 	# debug isa.known_types()
-	isa.add_type 'nonempty_text', ( x ) -> ( @text x ) and ( @nonempty x )
-	isa.add_type 'triple', ( x ) -> ( @count x ) and ( @multiple_of x, 3 ) and ( x < 10 )
 	#.........................................................................................................
 	for n in [ -3 .. 10 ]
 		try
@@ -105,10 +105,25 @@ demo_object_shapes = ->
 			help ( jr probe ), isa.validate.foobarcat probe
 		catch error
 			warn error.message
+	isa.number 56.78
 	return null
+
+#-----------------------------------------------------------------------------------------------------------
+demo_nested_errors = ->
+	# validate_isa_number 	= ( x ) -> throw new Error "µ1 not a number: #{rpr x}" 	unless isa.number x
+	# validate_isa_positive = ( x ) -> throw new Error "µ2 not positive: #{rpr x}" 	unless x > 0
+	# validate_isa_even 		= ( x ) -> throw new Error "µ3 not even: #{rpr x}" 			unless x %% 2 is 0
+	# validate_isa_positive_even_number = ( x ) ->
+	# 	validate_isa_number 	x
+	# 	validate_isa_positive x
+	# 	validate_isa_even 		x
+	# validate_isa_positive_even_number 42
+	# validate_isa_positive_even_number 42.3
+	# isa.add_type 'positive_even_number', ( x )
 
 ############################################################################################################
 demo_object_shapes()
+# demo_nested_errors()
 
 
 
