@@ -154,7 +154,7 @@ get_rprs_of_tprs = ( tprs ) ->
 #===========================================================================================================
 # SUB- AND SUPERTYPES
 #-----------------------------------------------------------------------------------------------------------
-@extensions =
+@supertypes =
   function:           'callable'
   boundfunction:      'callable'
   generatorfunction:  'callable'
@@ -164,20 +164,35 @@ get_rprs_of_tprs = ( tprs ) ->
   float:              'number'
 
 #-----------------------------------------------------------------------------------------------------------
-@extends = ( subtype, supertype ) ->
-  ### TAINT use validation functions with arguments ###
+@add_supertype = ( subtype, supertype ) ->
+  ### TAINT code duplication ###
   throw new Error "µ63231 expected 2 arguments, got #{arity}" unless ( arity = arguments.length  ) is 2
   throw new Error "µ63308 expected a text, got a #{type}"     unless ( type = @type_of subtype   ) is 'text'
   throw new Error "µ63385 expected a text, got a #{type}"     unless ( type = @type_of supertype ) is 'text'
+  if ( supertype = @supertypes[ subtype ] )?
+    throw new Error "µ33981 subtype #{rpr subtype} already has a supertype (#{rpr supertype})"
+  @supertypes[ subtype ] = supertype
+  return null
+
+#-----------------------------------------------------------------------------------------------------------
+@extends = ( subtype, supertype ) ->
+  ### TAINT code duplication ###
+  throw new Error "µ63231 expected 2 arguments, got #{arity}" unless ( arity = arguments.length  ) is 2
+  throw new Error "µ63308 expected a text, got a #{type}"     unless ( type = @type_of subtype   ) is 'text'
+  throw new Error "µ63385 expected a text, got a #{type}"     unless ( type = @type_of supertype ) is 'text'
+  return @_extends subtype, supertype
+
+#-----------------------------------------------------------------------------------------------------------
+@_extends = ( subtype, supertype ) ->
   return true if subtype is supertype
-  return ( @extensions[ subtype ] is supertype ) or ( @extends @extensions[ subtype ], supertype )
+  return ( @supertypes[ subtype ] is supertype ) or ( @_extends @supertypes[ subtype ], supertype )
 
 #-----------------------------------------------------------------------------------------------------------
 @supertype_of = ( x ) -> @supertype_of_type @type_of x
 
 #-----------------------------------------------------------------------------------------------------------
 @supertype_of_type = ( type ) ->
-  return type unless ( supertype = @extensions[ type ] )?
+  return type unless ( supertype = @supertypes[ type ] )?
   return @supertype_of_type supertype
 
 
