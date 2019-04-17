@@ -60,6 +60,7 @@ cnd_by_ity  = {}
   return ity_by_cnd[ type = CND.type_of x ] ? type
 
 #-----------------------------------------------------------------------------------------------------------
+### TAINT must allow additional arguments (as in, `multiple_of x, 5`) ###
 @validate = ( x, type, message = null ) ->
   throw new Error "µ63077 unknown type #{rpr type}" unless ( tester = @[ type ] )?
   # @_start_validating() unless @_is_validating
@@ -79,35 +80,22 @@ cnd_by_ity  = {}
     throw new Error prv_message + message
   return null
 
-#-----------------------------------------------------------------------------------------------------------
-_size_of =
-  list:       'length'
-  # arguments:  'length'
-  buffer:     'length'
-  set:        'size'
-  map:        'size'
-  #.........................................................................................................
-  global:     ( x ) => ( @all_keys_of x ).length
-  pod:        ( x ) => ( @keys_of     x ).length
-  #.........................................................................................................
-  text:       ( x, selector = 'codeunits' ) ->
-    switch selector
-      when 'codepoints' then return ( Array.from x ).length
-      when 'codeunits'  then return x.length
-      when 'bytes'      then return Buffer.byteLength x, ( settings?[ 'encoding' ] ? 'utf-8' )
-      else throw new Error "unknown counting selector #{rpr selector}"
 
+#===========================================================================================================
+# ADDING TYPES
 #-----------------------------------------------------------------------------------------------------------
 @add_type = ( type, settings, f ) ->
   switch ( arity = arguments.length )
     when 2 then [ type, settings, f, ] = [ type, null, settings, ]
     when 3 then null
     else throw new Error "µ29892 expected 2 or 3 arguments, got #{arity}"
-  defaults = { overwrite: false, size_of: ( settings?.size_of ? _size_of[ type ] ? null ), }
+  defaults = { overwrite: false, size_of: ( settings?.size_of ? @_registry_for_size_of[ type ] ? null ), }
   settings = if settings? then ( assign {}, settings, defaults ) else defaults
   #.........................................................................................................
   if ( not settings.overwrite ) and ( @[ type ] isnt undefined )
     throw new Error "name #{rpr type} already defined"
+  #.........................................................................................................
+  ### Add type tester method: ###
   f                     = f.bind @
   # f[ isa_type ]         = true
   @[ type ]             = ( x, P... ) =>
@@ -118,6 +106,8 @@ _size_of =
       throw new Error "µ11111 not a valid #{type} #{rpr P}: #{rpr x}"
     return R
   @[ type ][ isa_type ] = true
+  #.........................................................................................................
+  ### Add type validator method: ###
   @validate[ type ]     = ( x, P... ) =>
     @_validation_count += +1
     try
@@ -127,27 +117,21 @@ _size_of =
       @_validation_count += -1
     return null
   #.........................................................................................................
+  ### Add type size method: ###
   do ( s = settings.size_of ) =>
     if s is null
-      _size_of[ type ] = null
+      @_registry_for_size_of[ type ] = null
     else
       switch type_of_s = @type_of s
-        when 'text'     then _size_of[ type ] = ( x ) -> x[ s ]
-        when 'function' then _size_of[ type ] = s
+        when 'text'     then @_registry_for_size_of[ type ] = ( x ) -> x[ s ]
+        when 'function' then @_registry_for_size_of[ type ] = s
         else throw new Error "µ30988 expected null, a text or a function for size_of, got a #{type_of_s}"
   #.........................................................................................................
   return null
 
-#-----------------------------------------------------------------------------------------------------------
-@arity_of = ( x ) ->
-  unless ( type = @supertype_of x ) is 'callable'
-    throw new Error "µ88733 expected a callable, got a #{type}"
-  return x.length
-
-
 
 #===========================================================================================================
-#
+# SUB- AND SUPERTYPES
 #-----------------------------------------------------------------------------------------------------------
 @extensions =
   function:           'callable'
@@ -179,10 +163,34 @@ _size_of =
 #===========================================================================================================
 # OBJECT SIZES
 #-----------------------------------------------------------------------------------------------------------
+### TAINT in lieu of `@_registry_for_size_of`, set up a type metadata registry that includes other info
+such as sub/supertypes, whether type represents an indexed and ordered collection, etc. ###
+@_registry_for_size_of =
+  list:       'length'
+  # arguments:  'length'
+  buffer:     'length'
+  set:        'size'
+  map:        'size'
+  #.........................................................................................................
+  global:     ( x ) => ( @all_keys_of x ).length
+  pod:        ( x ) => ( @keys_of     x ).length
+  #.........................................................................................................
+  text:       ( x, selector = 'codeunits' ) ->
+    switch selector
+      when 'codepoints' then return ( Array.from x ).length
+      when 'codeunits'  then return x.length
+      when 'bytes'      then return Buffer.byteLength x, ( settings?[ 'encoding' ] ? 'utf-8' )
+      else throw new Error "unknown counting selector #{rpr selector}"
+
+#-----------------------------------------------------------------------------------------------------------
 @size_of = ( x, P... ) ->
+  ### The `size_of()` method uses a per-type configurable methodology to return the size of a given value;
+  such methodology may permit or necessitate passing additional arguments (such as `size_of text`, which
+  comes in several flavors depending on whether bytes or codepoints are to be counted). As such, it is a
+  model for how to implement Go-like method dispatching. ###
   # debug 'µ44744', [ x, P, ]
   type = CND.type_of x
-  unless ( @function ( getter = _size_of[ type ] ) )
+  unless ( @function ( getter = @_registry_for_size_of[ type ] ) )
     throw new Error "µ88793 unable to get size of a #{type}"
   return getter x, P...
 
@@ -190,9 +198,15 @@ _size_of =
 @first_of   = ( collection ) -> collection[ 0 ]
 @last_of    = ( collection ) -> collection[ collection.length - 1 ]
 
+#-----------------------------------------------------------------------------------------------------------
+@arity_of = ( x ) ->
+  unless ( type = @supertype_of x ) is 'callable'
+    throw new Error "µ88733 expected a callable, got a #{type}"
+  return x.length
+
 
 #===========================================================================================================
-#
+# OBJECT PROPERTY CATALOGUING
 #-----------------------------------------------------------------------------------------------------------
 @keys_of              = ( P... ) -> @values_of @walk_keys_of      P...
 @all_keys_of          = ( P... ) -> @values_of @walk_all_keys_of  P...
@@ -235,9 +249,7 @@ _size_of =
     yield from @_walk_all_keys_of proto, seen, settings
 
 #-----------------------------------------------------------------------------------------------------------
-@known_types = -> [ ( @walk_all_keys_of @, { symbol: isa_type } )... ]
-
-#-----------------------------------------------------------------------------------------------------------
+### Turn iterators into lists, copy lists: ###
 @values_of = ( x ) -> [ x... ]
 
 #-----------------------------------------------------------------------------------------------------------
@@ -255,9 +267,12 @@ _size_of =
   keys    = ( @values_of @keys_of x ).sort()
   return CND.equals probes, keys
 
+#-----------------------------------------------------------------------------------------------------------
+@known_types = -> [ ( @walk_all_keys_of @, { symbol: isa_type } )... ]
+
 
 #===========================================================================================================
-#
+# THE `ISA()` METHOD
 #-----------------------------------------------------------------------------------------------------------
 isa = ( x, type ) ->
   return @type_of x if ( arity = arguments.length ) is 1
@@ -268,11 +283,12 @@ isa = ( x, type ) ->
 
 
 ############################################################################################################
-self            = @
+# ASSEMBLY
+#===========================================================================================================
 isa             = isa.bind @
 module.exports  = isa
 
-do ->
+do =>
   #---------------------------------------------------------------------------------------------------------
   for cnd_type, ity_type of ity_by_cnd
     ### Generate entries to cnd_by_ity: ###
@@ -282,7 +298,7 @@ do ->
 
   #---------------------------------------------------------------------------------------------------------
   ### Bind all functions to `module.exports`: ###
-  for key, value of self
+  for key, value of @
     ### TAINT use isa.callable ###
     if CND.isa_function value
       isa[ key ] = value.bind isa
@@ -292,17 +308,20 @@ do ->
   #---------------------------------------------------------------------------------------------------------
   for cnd_type, ity_type of ity_by_cnd
     ### Generate mappings from `isa.$type()` to CND.isa_$type()`: ###
-    continue if self[ ity_type ]?
+    continue if @[ ity_type ]?
     cnd_key = "isa_#{cnd_type}"
     # debug 'µ8498', cnd_type, ity_type, cnd_key, CND.type_of CND[ cnd_key ]
     unless ( type = CND.type_of ( cnd_method = CND[ cnd_key ] ) ) is 'function'
       throw new Error "µ63693 expected a function for `CND.#{cnd_key}`, found a #{type}"
-    size_of = _size_of[ ity_type ] ? null
+    size_of = @_registry_for_size_of[ ity_type ] ? null
     isa.add_type ity_type, { size_of, }, cnd_method.bind CND
 
   #---------------------------------------------------------------------------------------------------------
   return null
 
+
+#===========================================================================================================
+# ADDITIONAL TYPES
 #-----------------------------------------------------------------------------------------------------------
 isa.add_type 'set',     { size_of: 'size',  }, ( x ) -> ( Object::toString.call x ) is '[object Set]'
 isa.add_type 'map',     { size_of: 'size',  }, ( x ) -> ( Object::toString.call x ) is '[object Map]'
