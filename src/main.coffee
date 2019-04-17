@@ -59,60 +59,81 @@ cnd_by_ity  = {}
   throw new Error "µ63000 expected 1 argument, got #{arity}" unless ( arity = arguments.length ) is 1
   return ity_by_cnd[ type = CND.type_of x ] ? type
 
+
+#-----------------------------------------------------------------------------------------------------------
+get_rprs_of_tprs = ( tprs ) ->
+  ### `tprs: test parameters, i.e. additional arguments to type tester, as in `multiple_of x, 4` ###
+  rpr_of_tprs = switch tprs.length
+    when 0 then ''
+    when 1 then "#{rpr tprs[ 0 ]}"
+    else "#{rpr tprs}"
+  srpr_of_tprs = switch rpr_of_tprs.length
+    when 0 then ''
+    else ' ' + rpr_of_tprs
+  return { rpr_of_tprs, srpr_of_tprs, }
+
 #-----------------------------------------------------------------------------------------------------------
 ### TAINT must allow additional arguments (as in, `multiple_of x, 5`) ###
-@validate = ( x, type, message = null ) ->
+@validate = ( type, message = null ) ->
   throw new Error "µ63077 unknown type #{rpr type}" unless ( tester = @[ type ] )?
-  # @_start_validating() unless @_is_validating
-  # debug 'µ44444', x, type, @_validation_count
-  prv_message = ''
-  try
-    result = tester x
-  catch error
-    prv_message = error.message + '\n'
-  # @_stop_validating()
-  unless result
-    if message?
-      message = message.replace /\$type/g,  type
-      message = message.replace /\$value/g, rpr x
-    else
-      message = "µ63154 expected a #{type}, got a #{CND.type_of x} (value: #{rpr x})"
-    throw new Error prv_message + message
-  return null
+  return ( x, tprs... ) =>
+    prv_message = ''
+    try
+      result = tester x, tprs...
+    catch error
+      prv_message = error.message + '\n'
+    # @_stop_validating()
+    unless result
+      ### TAINT code duplication ###
+      { rpr_of_tprs, srpr_of_tprs, } = get_rprs_of_tprs tprs
+      if message?
+        message = message.replace /\$type/g,      type
+        message = message.replace /\$value/g,     rpr x
+        message = message.replace /\$tprs/g,      rpr_of_tprs
+        message = message.replace /\$stprs/g,     srpr_of_tprs
+      else
+        message = "µ63154 expected a #{type}, got a #{CND.type_of x}#{srpr_of_tprs} (value: #{rpr x})"
+      throw new Error prv_message + message
+    return null
 
 
 #===========================================================================================================
 # ADDING TYPES
 #-----------------------------------------------------------------------------------------------------------
-@add_type = ( type, settings, f ) ->
+@add_type = ( type, settings, tester ) ->
   switch ( arity = arguments.length )
-    when 2 then [ type, settings, f, ] = [ type, null, settings, ]
+    when 2 then [ type, settings, tester, ] = [ type, null, settings, ]
     when 3 then null
     else throw new Error "µ29892 expected 2 or 3 arguments, got #{arity}"
-  defaults = { overwrite: false, size_of: ( settings?.size_of ? @_registry_for_size_of[ type ] ? null ), }
-  settings = if settings? then ( assign {}, settings, defaults ) else defaults
+  defaults  = { overwrite: false, size_of: ( settings?.size_of ? @_registry_for_size_of[ type ] ? null ), }
+  settings  = if settings? then ( assign {}, settings, defaults ) else defaults
+  #.........................................................................................................
+  unless ( _type = CND.isa_text type )
+    throw new Error "µ33988 expected a text for type, got a #{rpr _type}"
+  unless ( _type = CND.isa_function tester )
+    throw new Error "µ33988 expected a function for tester, got a #{rpr _type}"
   #.........................................................................................................
   if ( not settings.overwrite ) and ( @[ type ] isnt undefined )
     throw new Error "name #{rpr type} already defined"
   #.........................................................................................................
+  tester    = tester.bind @
+  #.........................................................................................................
   ### Add type tester method: ###
-  f                     = f.bind @
-  # f[ isa_type ]         = true
-  @[ type ]             = ( x, P... ) =>
-    # debug 'µ33333', x, type, @_validation_count
-    R = f x, P...
+  @[ type ] = ( x, tprs... ) =>
+    R = tester x, tprs...
     if ( not R ) and ( @_validation_count > 0 )
       ### TAINT code duplication ###
-      throw new Error "µ11111 not a valid #{type} #{rpr P}: #{rpr x}"
+      { rpr_of_tprs, srpr_of_tprs, } = get_rprs_of_tprs tprs
+      throw new Error "µ11111 not a valid #{type}#{srpr_of_tprs}: #{rpr x}"
     return R
   @[ type ][ isa_type ] = true
   #.........................................................................................................
   ### Add type validator method: ###
-  @validate[ type ]     = ( x, P... ) =>
+  @validate[ type ] = ( x, P... ) =>
     @_validation_count += +1
     try
-      @validate x, type, P...
-    # catch error
+      ( @validate type ) x, P...
+    # catch error then debug "µ23272 >>>>>>>>>>>>>> value #{rpr x}"; throw error
     finally
       @_validation_count += -1
     return null
