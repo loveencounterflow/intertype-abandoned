@@ -15,6 +15,11 @@ info                      = CND.get_logger 'info',      badge
 { assign
   jr }                    = CND
 flatten                   = require 'lodash/flattenDeep'
+#...........................................................................................................
+{ inspect, }              = require 'util'
+_xrpr                     = ( x ) -> inspect x, { colors: yes, breakLength: Infinity, maxArrayLength: Infinity, depth: Infinity, }
+xrpr                      = ( x ) -> ( _xrpr x )[ .. 500 ]
+#...........................................................................................................
 isa_type                  = Symbol 'isa_type'
 @_validation_count        = 0
 
@@ -92,7 +97,7 @@ get_rprs_of_tprs = ( tprs ) ->
         message = message.replace /\$tprs/g,      rpr_of_tprs
         message = message.replace /\$stprs/g,     srpr_of_tprs
       else
-        message = "µ63154 expected a #{type}, got a #{CND.type_of x}#{srpr_of_tprs} (value: #{rpr x})"
+        message = "µ63154 expected a #{type}, got a #{CND.type_of x}#{srpr_of_tprs} (value: #{xrpr x})"
       throw new Error prv_message + message
     return null
 
@@ -128,7 +133,7 @@ get_rprs_of_tprs = ( tprs ) ->
     if ( not R ) and ( @_validation_count > 0 )
       ### TAINT code duplication ###
       { rpr_of_tprs, srpr_of_tprs, } = get_rprs_of_tprs tprs
-      throw new Error "µ11111 not a valid #{type}#{srpr_of_tprs}: #{rpr x}"
+      throw new Error "µ11111 not a valid #{type}#{srpr_of_tprs}: #{xrpr x}"
     return R
   @[ type ][ isa_type ] = true
   #.........................................................................................................
