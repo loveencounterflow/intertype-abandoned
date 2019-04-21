@@ -135,6 +135,56 @@ demo_object_shapes = ->
   return null
 
 #-----------------------------------------------------------------------------------------------------------
+demo_object_shapes_ng = ->
+  isa.add_type 'nonempty_text', ( x ) -> ( @text x  ) and ( @nonempty x )
+  isa.add_type 'triple',        ( x ) -> ( @count x ) and ( @multiple_of x, 3 ) and ( x < 10 )
+  # debug isa.known_types()
+  #.........................................................................................................
+  for n in [ -4 .. 10 ]
+    try
+      info n, ( isa.triple n ), ( isa.validate.triple n ) # , "this is not a triple: $value"
+    catch error
+      warn error.message
+  #.........................................................................................................
+  isa.add_type 'foobarcat',
+    supertype: 'pod'
+    tests:
+      isa_pod:                ( x ) -> @pod            x
+      has_keys:               ( x ) -> @has_keys       x, 'foo', 'bar', 'cat'
+      x_bar_is_nonempty_text: ( x ) -> @nonempty_text  x.bar
+      x_cat_is_nonempty_text: ( x ) -> @nonempty_text  x.cat
+  #.........................................................................................................
+  isa.add_type 'foobarflapcat',
+    supertype: 'foobarcat'
+    tests:
+      isa_foobarcat:          ( x ) -> @foobarcat  x
+      has_keys:               ( x ) -> @has_keys   x, 'flap'
+      # return false unless @count      x.flap
+  #.........................................................................................................
+  probes = [
+    { foo: 3, bar: 'a text', }
+    { foo: 3, bar: 'a text', cat: '', }
+    { foo: 3, bar: 'a text', cat: 'cats!', }
+    { foo: 3, bar: 'a text', cat: 'cats!', flap: 3, }
+    { foo: 3, bar: 'a text', cat: 'cats!', flap: -3, }
+    ]
+  #.........................................................................................................
+  for probe in probes
+    for type in [ 'foobarcat', 'foobarflapcat', ]
+      help ( jr probe ), ( type )
+      try
+        isa.validate[ type ] probe
+        urge 'ok'
+      catch error
+        throw error
+        warn error.message
+  #.........................................................................................................
+  info isa.supertype_of_type 'safe_integer'
+  info isa.supertype_of_type 'foobarcat'
+  info isa.supertype_of_type 'foobarflapcat'
+  return null
+
+#-----------------------------------------------------------------------------------------------------------
 demo_nested_errors = ->
   # validate_isa_number   = ( x ) -> throw new Error "µ1 not a number: #{rpr x}"  unless isa.number x
   # validate_isa_positive = ( x ) -> throw new Error "µ2 not positive: #{rpr x}"  unless x > 0
@@ -150,7 +200,8 @@ demo_nested_errors = ->
 ############################################################################################################
 # demo()
 # demo_supertypes()
-demo_object_shapes()
+# demo_object_shapes()
+demo_object_shapes_ng()
 # demo_nested_errors()
 
 

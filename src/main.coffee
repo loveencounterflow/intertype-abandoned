@@ -105,9 +105,20 @@ get_rprs_of_tprs = ( tprs ) ->
 #===========================================================================================================
 # ADDING TYPES
 #-----------------------------------------------------------------------------------------------------------
+tester_from_tests_object = ( tests ) ->
+  return ( x ) ->
+    # debug 'µ038486', ( k for k of @ )
+    ### TAINT use `name` to improve error messages ###
+    return false unless test.call @, x for name, test of tests
+    return true
+
+#-----------------------------------------------------------------------------------------------------------
 @add_type = ( type, settings, tester ) ->
+  debug 'µ77833', type, settings, tester
   switch ( arity = arguments.length )
-    when 2 then [ type, settings, tester, ] = [ type, null, settings, ]
+    when 2
+      if CND.isa_function settings
+        [ type, settings, tester, ] = [ type, null, settings, ]
     when 3 then null
     else throw new Error "µ29892 expected 2 or 3 arguments, got #{arity}"
   defaults  = { overwrite: false, size_of: ( settings?.size_of ? @_registry_for_size_of[ type ] ? null ), }
@@ -115,8 +126,15 @@ get_rprs_of_tprs = ( tprs ) ->
   #.........................................................................................................
   unless ( _type = CND.isa_text type )
     throw new Error "µ33988 expected a text for type, got a #{rpr _type}"
-  unless ( _type = CND.isa_function tester )
-    throw new Error "µ33988 expected a function for tester, got a #{rpr _type}"
+  #.........................................................................................................
+  if ( _type = CND.isa_function tester )
+    ### TAINT make sure settings.tests is not set ###
+    null
+  else
+    if CND.isa_pod settings.tests
+      tester = tester_from_tests_object settings.tests
+    else
+      throw new Error "µ33988 expected a function for tester, got a #{rpr _type}"
   #.........................................................................................................
   if ( not settings.overwrite ) and ( @[ type ] isnt undefined )
     throw new Error "name #{rpr type} already defined"
