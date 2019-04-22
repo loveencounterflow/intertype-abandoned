@@ -9,7 +9,7 @@ njs_path                  = require 'path'
 #...........................................................................................................
 CND                       = require 'cnd'
 rpr                       = CND.rpr.bind CND
-badge                     = 'INTERTYPE/tests/main'
+badge                     = 'INTERTYPE/experiments/demo'
 log                       = CND.get_logger 'plain',     badge
 info                      = CND.get_logger 'info',      badge
 whisper                   = CND.get_logger 'whisper',   badge
@@ -137,14 +137,29 @@ demo_object_shapes = ->
 #-----------------------------------------------------------------------------------------------------------
 demo_object_shapes_ng = ->
   isa.add_type 'nonempty_text', ( x ) -> ( @text x  ) and ( @nonempty x )
-  isa.add_type 'triple',        ( x ) -> ( @count x ) and ( @multiple_of x, 3 ) and ( x < 10 )
+  isa.add_type
+    name:       'triple'
+    supertype:  'integer'
+    tests:
+      isa_count:        ( x ) -> @count x
+      multiple_of_10:   ( x ) -> @multiple_of x, 3
+      not_too_big:      ( x ) -> x < 10
+  #.........................................................................................................
   # debug isa.known_types()
+  for n in [ 3, 4.5, 6, 9, 12, ]
+    try
+      isa.validate.triple n
+    catch error
+      null
+    info 'µ33883', n, ( if error? then CND.red error.message else CND.lime 'ok' )
+  return ### !!!!!!!!!!!!!!!!!!!!!!!!!! ####
   #.........................................................................................................
   for n in [ -4 .. 10 ]
     try
       info n, ( isa.triple n ), ( isa.validate.triple n ) # , "this is not a triple: $value"
     catch error
       warn error.message
+  return ### !!!!!!!!!!!!!!!!!!!!!!!!!! ####
   #.........................................................................................................
   isa.add_type 'foobarcat',
     supertype: 'pod'

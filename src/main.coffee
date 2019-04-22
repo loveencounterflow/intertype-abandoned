@@ -21,7 +21,6 @@ _xrpr                     = ( x ) -> inspect x, { colors: yes, breakLength: Infi
 xrpr                      = ( x ) -> ( _xrpr x )[ .. 500 ]
 #...........................................................................................................
 isa_type                  = Symbol 'isa_type'
-@_validation_count        = 0
 
 #-----------------------------------------------------------------------------------------------------------
 ity_by_cnd =
@@ -98,6 +97,7 @@ get_rprs_of_tprs = ( tprs ) ->
         message = message.replace /\$stprs/g,     srpr_of_tprs
       else
         message = "µ63154 expected a #{type}, got a #{CND.type_of x}#{srpr_of_tprs} (value: #{xrpr x})"
+      debug 'µ37377', xrpr x
       throw new Error prv_message + message
     return null
 
@@ -105,11 +105,20 @@ get_rprs_of_tprs = ( tprs ) ->
 #===========================================================================================================
 # ADDING TYPES
 #-----------------------------------------------------------------------------------------------------------
-tester_from_tests_object = ( tests ) ->
+tester_from_tests_object = ( type, tests ) ->
   return ( x ) ->
     # debug 'µ038486', ( k for k of @ )
     ### TAINT use `name` to improve error messages ###
-    return false unless test.call @, x for name, test of tests
+    for name, test of tests
+      return false unless test.call @, x
+    return true
+
+#-----------------------------------------------------------------------------------------------------------
+validator_from_tests_object = ( type, tests ) ->
+  return ( x ) ->
+    for name, test of tests
+      unless test.call @, x
+        throw new Error "µ33873 failed test #{type}/#{name}: #{xrpr x}"
     return true
 
 #-----------------------------------------------------------------------------------------------------------
@@ -132,7 +141,7 @@ tester_from_tests_object = ( tests ) ->
     null
   else
     if CND.isa_pod settings.tests
-      tester = tester_from_tests_object settings.tests
+      tester = tester_from_tests_object type, settings.tests
     else
       throw new Error "µ33988 expected a function for tester, got a #{rpr _type}"
   #.........................................................................................................
@@ -146,23 +155,18 @@ tester_from_tests_object = ( tests ) ->
     @add_supertype type, supertype
   #.........................................................................................................
   ### Add type tester method: ###
-  @[ type ] = ( x, tprs... ) =>
-    R = tester x, tprs...
-    if ( not R ) and ( @_validation_count > 0 )
-      ### TAINT code duplication ###
-      { rpr_of_tprs, srpr_of_tprs, } = get_rprs_of_tprs tprs
-      throw new Error "µ11111 not a valid #{type}#{srpr_of_tprs}: #{xrpr x}"
-    return R
+  @[ type ]             = ( x, tprs... ) => tester x, tprs...
   @[ type ][ isa_type ] = true
   #.........................................................................................................
   ### Add type validator method: ###
   @validate[ type ] = ( x, P... ) =>
-    @_validation_count += +1
-    try
-      ( @validate type ) x, P...
-    # catch error then debug "µ23272 >>>>>>>>>>>>>> value #{rpr x}"; throw error
-    finally
-      @_validation_count += -1
+    # R = tester x, tprs...
+    # if ( not R ) and ( @_validation_count > 0 )
+    #   ### TAINT code duplication ###
+    #   { rpr_of_tprs, srpr_of_tprs, } = get_rprs_of_tprs tprs
+    #   throw new Error "µ11111 not a valid #{type}#{srpr_of_tprs}: #{xrpr x}"
+    # return R
+    ( @validate type ) x, P...
     return null
   #.........................................................................................................
   ### Add type size method: ###
