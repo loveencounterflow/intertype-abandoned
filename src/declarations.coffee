@@ -50,9 +50,6 @@
 	@declare 'multiple_of',         ( x, n ) => ( @isa.number x ) and ( x %% n ) is 0
 	#.........................................................................................................
 	@declare 'buffer',  { size: 'length', },  ( x ) => Buffer.isBuffer x
-	console.log 'µ77633\n', ( k for k of @specs ).join '\t'
-	console.log 'µ77633\n', ( k for k of @specs ).sort().join '\t'
-	@declare 'zeroXXXXXXXXX',       ( x ) => x is 0
 	@declare 'list',    { size: 'length', },  ( x ) => ( js_type_of x ) is 'array'
 	@declare 'object',  { size: 'length', },  ( x ) => ( js_type_of x ) is 'object'
 	@declare 'text',    { size: 'length', },  ( x ) => ( js_type_of x ) is 'string'

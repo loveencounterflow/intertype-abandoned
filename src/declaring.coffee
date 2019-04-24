@@ -74,7 +74,7 @@ copy_if_original = ( x ) ->
 
 #-----------------------------------------------------------------------------------------------------------
 @declare = ( P... ### type, spec?, test? ### ) ->
-  debug 'µ33374-0', 'declare', P
+  # debug 'µ33374-0', 'declare', P
   switch arity = P.length
     when 1 then return @_declare_1 P...
     when 2 then return @_declare_2 P...
@@ -83,7 +83,7 @@ copy_if_original = ( x ) ->
 
 #-----------------------------------------------------------------------------------------------------------
 @_declare_1 = ( spec ) ->
-  debug 'µ33374-1', '_declare_1', spec
+  # debug 'µ33374-1', '_declare_1', spec
   #.........................................................................................................
   unless ( T = js_type_of spec ) is 'object'
     throw new Error "µ6869 expected an object for spec, got a #{T}"
@@ -98,7 +98,7 @@ copy_if_original = ( x ) ->
 
 #-----------------------------------------------------------------------------------------------------------
 @_declare_2 = ( type, spec_or_test ) ->
-  debug 'µ33374-2', '_declare_2', type, spec_or_test
+  # debug 'µ33374-2', '_declare_2', type, spec_or_test
   switch T = js_type_of spec_or_test
     #.......................................................................................................
     when 'function'
@@ -119,7 +119,7 @@ copy_if_original = ( x ) ->
 
 #-----------------------------------------------------------------------------------------------------------
 @_declare_3 = ( type, spec, test ) ->
-  debug 'µ33374-3', '_declare_3', type, spec, test
+  # debug 'µ33374-3', '_declare_3', type, spec, test
   #.........................................................................................................
   if ( T = js_type_of spec ) isnt 'object'
     throw new Error "µ7607 expected an object, got a #{T} for spec"
@@ -138,7 +138,7 @@ copy_if_original = ( x ) ->
 @_declare = ( spec ) ->
   spec      = copy_if_original spec
   delete spec[ isa_copy ]
-  debug 'µ33374-4', '_declare', spec
+  # debug 'µ33374-4', '_declare', spec
   { type, } = spec
   spec.type = type
   #.........................................................................................................
