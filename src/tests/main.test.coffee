@@ -22,8 +22,13 @@ praise                    = CND.get_logger 'praise',    badge
 echo                      = CND.echo.bind CND
 #...........................................................................................................
 test                      = require 'guy-test'
-isa                       = require '../..'
-{ jr }                    = CND
+INTERTYPE                 = require '../..'
+{ Intertype, }            = INTERTYPE
+{ assign
+  jr
+  flatten
+  xrpr
+  js_type_of }            = require '../helpers'
 
 
 #-----------------------------------------------------------------------------------------------------------
@@ -93,7 +98,7 @@ isa                       = require '../..'
   # T.eq ( isa.size_of { '~isa': 'XYZ/yadda', 'foo': 42, 'bar': 108, 'baz': 3, }      ), 4
 
 #-----------------------------------------------------------------------------------------------------------
-@[ "_demo" ] = ( T ) ->
+@[ "_demo 1" ] = ( T ) ->
   isa = @
 
   x =
@@ -210,6 +215,117 @@ isa                       = require '../..'
       return null
   done()
   return null
+
+
+#-----------------------------------------------------------------------------------------------------------
+@[ "_demo 2" ] = ( T, done ) ->
+  intertype = new Intertype
+  { isa
+    validate
+    type_of
+    types_of
+    size_of
+    declare
+    all_keys_of } = intertype.export_methods()
+  T.eq ( isa 'callable',      'xxx'              ), false
+  T.eq ( isa 'callable',      ( -> )             ), true
+  T.eq ( isa 'callable',      ( -> ).bind @      ), true
+  T.eq ( isa 'callable',      ( -> await 42 )    ), true
+  T.eq ( isa 'callable',      ( -> yield 42 )    ), true
+  T.eq ( isa 'callable',      ( -> yield 42 )()  ), false
+  T.eq ( isa 'date',          new Date()         ), true
+  T.eq ( isa 'date',          Date.now()         ), false
+  T.eq ( isa 'finite',        123                ), true
+  T.eq ( isa 'global',        global             ), true
+  T.eq ( isa 'integer',       123                ), true
+  T.eq ( isa 'integer',       42                 ), true
+  T.eq ( isa 'number',        123                ), true
+  T.eq ( isa 'number',        42                 ), true
+  T.eq ( isa 'number',        NaN                ), false
+  T.eq ( isa 'number',        NaN                ), false
+  T.eq ( isa 'safeinteger',   123                ), true
+  T.eq ( isa 'text',          'x'                ), true
+  T.eq ( isa 'text',          NaN                ), false
+  T.eq ( isa.even             42                 ), true
+  T.eq ( isa.finite           123                ), true
+  T.eq ( isa.integer          123                ), true
+  T.eq ( isa.integer          42                 ), true
+  T.eq ( isa.multiple_of      42, 2              ), true
+  T.eq ( isa.number           123                ), true
+  T.eq ( isa.safeinteger      123                ), true
+  T.eq ( isa[ 'multiple_of' ] 42, 2              ), true
+  info 'µ01-27', xrpr type_of              'xxx'
+  info 'µ01-28',  xrpr type_of              ( -> )
+  info 'µ01-29',  xrpr type_of              ( -> ).bind @
+  info 'µ01-30',  xrpr type_of              ( -> await 42 )
+  info 'µ01-31',  xrpr type_of              ( -> yield 42 )
+  info 'µ01-32',  xrpr type_of              ( -> yield 42 )()
+  info 'µ01-33', xrpr type_of              123
+  info 'µ01-34', xrpr type_of              42
+  info 'µ01-35', xrpr type_of              []
+  info 'µ01-36', xrpr type_of              global
+  info 'µ01-37', xrpr type_of              new Date()
+  info 'µ01-38', xrpr type_of              {}
+  info 'µ01-39', xrpr types_of             123
+  info 'µ01-40', xrpr types_of             124
+  info 'µ01-41', xrpr types_of             0
+  info 'µ01-42', xrpr types_of             true
+  info 'µ01-43', xrpr types_of             null
+  info 'µ01-44', xrpr types_of             undefined
+  info 'µ01-45', xrpr types_of             {}
+  info 'µ01-46', xrpr types_of             []
+  info 'µ01-47', xrpr all_keys_of          [ null, ]
+  done()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ###
+  # info size_of 'xxx'
+  X                 = {}
+  X.x               = true
+  X.spec            = {}
+  X.spec.spec_of_X  = true
+  Y                 = Object.create X
+  Y.y               = true
+  Y.spec            = Object.create X.spec
+  Y.spec.spec_of_Y  = true
+  debug X,        jr ( k for k of X )
+  debug X.spec,   jr ( k for k of X.spec )
+  debug Y,        jr ( k for k of Y )
+  debug Y.spec,   jr ( k for k of Y.spec )
+  Y.spec.spec_of_X  = false
+  info X.spec.spec_of_X
+  info X.spec.spec_of_Y
+  info Y.spec.spec_of_X
+  info Y.spec.spec_of_Y
+  ###
+
+
 
 # #-----------------------------------------------------------------------------------------------------------
 # @[ "nasty error message, tamed" ] = ( T, done ) ->
@@ -328,7 +444,9 @@ isa                       = require '../..'
 
 ############################################################################################################
 unless module.parent?
-  test @
+  # test @
   # test @[ "multiple tests" ]
   # test @[ "nasty error message, tamed" ]
+  test @[ "_demo 2" ]
+
 

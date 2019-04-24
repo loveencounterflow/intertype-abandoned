@@ -4,7 +4,7 @@
 ############################################################################################################
 CND                       = require 'cnd'
 rpr                       = CND.rpr
-badge                     = 'INTERTYPE/MAIN'
+badge                     = 'INTERTYPE/SIZING'
 debug                     = CND.get_logger 'debug',     badge
 alert                     = CND.get_logger 'alert',     badge
 whisper                   = CND.get_logger 'whisper',   badge
@@ -12,13 +12,12 @@ warn                      = CND.get_logger 'warn',      badge
 help                      = CND.get_logger 'help',      badge
 urge                      = CND.get_logger 'urge',      badge
 info                      = CND.get_logger 'info',      badge
-{ assign
-  jr }                    = CND
-flatten                   = require 'lodash/flattenDeep'
 #...........................................................................................................
-{ inspect, }              = require 'util'
-# _xrpr                     = ( x ) -> inspect x, { colors: yes, breakLength: Infinity, maxArrayLength: Infinity, depth: Infinity, }
-# xrpr                      = ( x ) -> ( _xrpr x )[ .. 500 ]
+{ assign
+  jr
+  flatten
+  xrpr
+  js_type_of }            = require './helpers'
 
 
 #===========================================================================================================
@@ -27,11 +26,11 @@ flatten                   = require 'lodash/flattenDeep'
 @_sizeof_method_from_spec = ( type, spec ) ->
   do ( s = spec.size ) =>
     return null unless s?
-    switch type_of_s = @type_of s
-      when 'text'     then return ( x ) -> x[ s ]
-      when 'function' then return s
-      when 'number'   then return -> s
-    throw new Error "µ30988 expected null, a text or a function for size of #{type}, got a #{type_of_s}"
+    switch T = js_type_of s
+      when 'string'   then return ( x ) -> x[ s ]   ### TAINT allows empty strings ###
+      when 'function' then return s                 ### TAINT disallows async funtions ###
+      when 'number'   then return -> s              ### TAINT allows NaN, Infinity ###
+    throw new Error "µ30988 expected null, a text or a function for size of #{type}, got a #{T}"
 
 #-----------------------------------------------------------------------------------------------------------
 @size_of = ( x, P... ) ->
