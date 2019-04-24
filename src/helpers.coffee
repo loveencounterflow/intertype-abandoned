@@ -1,8 +1,8 @@
 
 
 
-
 #...........................................................................................................
+CND           = require 'cnd'
 { inspect, }  = require 'util'
 @assign       = Object.assign
 @jr           = JSON.stringify
